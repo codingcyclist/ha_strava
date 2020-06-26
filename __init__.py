@@ -55,6 +55,7 @@ from .const import (
     CONF_SENSOR_ACTIVITY_TYPE,
     CONF_STRAVA_UPDATE_EVENT,
     CONF_STRAVA_RELOAD_EVENT,
+    FACTOR_KILOJOULES_TO_KILOCALORIES,
     MAX_NB_ACTIVITIES,
 )
 
@@ -120,9 +121,10 @@ class StravaWebhookView(HomeAssistantView):
 
         if activities_response.status == 200:
             activities = json.loads(await activities_response.text())
-
+            _LOGGER.debug(f"Strava API Response: {activities}")
             cities = []
             for activity in activities:
+                _LOGGER.debug(f"any calories? {activity.get('calories', 'no!')}")
                 geo_location_response = await self.websession.async_request(
                     method="GET",
                     url=f'https://geocode.xyz/{activity.get("start_latitude", 0)},{activity.get("start_longitude", 0)}?geoit=json',
@@ -148,7 +150,12 @@ class StravaWebhookView(HomeAssistantView):
                         CONF_SENSOR_DURATION: float(activity.get("elapsed_time", -1)),
                         CONF_SENSOR_MOVING_TIME: float(activity.get("moving_time", -1)),
                         CONF_SENSOR_KUDOS: int(activity.get("kudos_count", -1)),
-                        CONF_SENSOR_CALORIES: int(activity.get("kilojoules", -1)),
+                        CONF_SENSOR_CALORIES: int(
+                            activity.get(
+                                "kilojoules", -1 / FACTOR_KILOJOULES_TO_KILOCALORIES
+                            )
+                            * FACTOR_KILOJOULES_TO_KILOCALORIES
+                        ),
                         CONF_SENSOR_ELEVATION: int(
                             activity.get("total_elevation_gain", -1)
                         ),

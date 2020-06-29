@@ -1,4 +1,5 @@
 """The Strava Home Assistant integration."""
+"""Just some changes to see what happens when we merge the filtered branch"""
 import asyncio
 import logging
 import json

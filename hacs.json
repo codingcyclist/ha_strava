@@ -1,0 +1,4 @@
+{
+    "name": "Strava Home Assistant",
+    "domains": ["sensor"]
+}

@@ -3,18 +3,18 @@
 import asyncio
 import logging
 import json
-from typing import Callable
 from json import JSONDecodeError
+from typing import Callable
 import voluptuous as vol
-from aiohttp.web import json_response, Response, Request
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant import data_entry_flow
 from aiohttp import ClientSession
+from aiohttp.web import json_response, Response, Request
 from datetime import datetime as dt
 
+from homeassistant import data_entry_flow
+from homeassistant.core import HomeAssistant
+from homeassistant.components.http.view import HomeAssistantView
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.network import get_url, NoURLAvailableError
-
-
 from homeassistant.config_entries import ConfigEntry, SOURCE_IMPORT
 from homeassistant.const import (
     CONF_CLIENT_ID,
@@ -25,8 +25,6 @@ from homeassistant.const import (
     EVENT_CORE_CONFIG_UPDATE,
     EVENT_HOMEASSISTANT_START,
 )
-from homeassistant.components.http.view import HomeAssistantView
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers import (
     aiohttp_client,
     config_entry_oauth2_flow,
@@ -122,10 +120,8 @@ class StravaWebhookView(HomeAssistantView):
 
         if activities_response.status == 200:
             activities = json.loads(await activities_response.text())
-            _LOGGER.debug(f"Strava API Response: {activities}")
             cities = []
             for activity in activities:
-                _LOGGER.debug(f"any calories? {activity.get('calories', 'no!')}")
                 geo_location_response = await self.websession.async_request(
                     method="GET",
                     url=f'https://geocode.xyz/{activity.get("start_latitude", 0)},{activity.get("start_longitude", 0)}?geoit=json',

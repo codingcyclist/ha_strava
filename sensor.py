@@ -1,5 +1,10 @@
 """Sensor platform for HA Strava"""
+from datetime import datetime as dt
+from aiohttp import ClientSession
+import logging
+
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.network import get_url
 from homeassistant.const import (
     LENGTH_MILES,
     LENGTH_KILOMETERS,
@@ -9,6 +14,7 @@ from homeassistant.const import (
     SPEED_MILES_PER_HOUR,
     TIME_MINUTES,
 )
+
 from .const import (
     DOMAIN,
     CONF_STRAVA_UPDATE_EVENT,
@@ -34,10 +40,6 @@ from .const import (
     DEFAULT_NB_ACTIVITIES,
     MAX_NB_ACTIVITIES,
 )
-from datetime import datetime as dt
-from aiohttp import ClientSession
-from homeassistant.helpers.network import get_url
-import logging
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -144,9 +146,12 @@ class StravaSummaryStatsSensor(Entity):
             }
         elif self._metric == CONF_SENSOR_DURATION:
             days = int(activity[CONF_SENSOR_MOVING_TIME] // (3600 * 24))
-            hours = int((activity[CONF_SENSOR_MOVING_TIME] - days * (3600 * 24)) // 3600)
+            hours = int(
+                (activity[CONF_SENSOR_MOVING_TIME] - days * (3600 * 24)) // 3600
+            )
             minutes = int(
-                (activity[CONF_SENSOR_MOVING_TIME] - days * (3600 * 24) - hours * 3600) // 60
+                (activity[CONF_SENSOR_MOVING_TIME] - days * (3600 * 24) - hours * 3600)
+                // 60
             )
             seconds = int(
                 activity[CONF_SENSOR_MOVING_TIME]

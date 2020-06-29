@@ -4,19 +4,18 @@ import asyncio
 import aiohttp
 import json
 import voluptuous as vol
+
 from homeassistant import config_entries
+from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, HTTP_OK
 from homeassistant.core import callback
 from homeassistant.helpers import config_entry_oauth2_flow
+from homeassistant.helpers.network import get_url, NoURLAvailableError
 from homeassistant.helpers.entity_registry import (
     async_get_registry,
     async_entries_for_config_entry,
 )
 
-# from homeassistant.helpers.device_registry import async_get_registry
-from homeassistant.helpers.network import get_url, NoURLAvailableError
-from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, HTTP_OK
 from .sensor import StravaSummaryStatsSensor
-import aiohttp
 from .const import (
     DOMAIN,
     OAUTH2_AUTHORIZE,
@@ -40,10 +39,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             return self.async_abort(reason="no_config")
 
         if user_input is not None:
-            # await self.hass.config_entries.async_remove(
-            #    entry_id=ha_strava_config_entries[0].entry_id
-            # )
-            # _device_registry = await async_get_registry(hass=self.hass)
             _entity_registry = await async_get_registry(hass=self.hass)
             entities = async_entries_for_config_entry(
                 registry=_entity_registry,
@@ -156,35 +151,7 @@ class OAuth2FlowHandler(
         ] = f"{get_url(self.hass, allow_internal=False, allow_ip=False)}/api/strava/webhook"
         data[CONF_CLIENT_ID] = self.flow_impl.client_id
         data[CONF_CLIENT_SECRET] = self.flow_impl.client_secret
-        """
-        async with aiohttp.ClientSession() as websession:
 
-            post_response = await websession.post(
-                url=WEBHOOK_SUBSCRIPTION_URL,
-                data={
-                    "client_id": self.flow_impl.client_id,
-                    "client_secret": self.flow_impl.client_secret,
-                    "callback_url": data[CONF_CALLBACK_URL],
-                    "verify_token": "HA_STRAVA",
-                },
-            )
-            if post_response.status == 400:
-                post_response_content = await post_response.text()
-
-                if "exists" in json.loads(post_response_content)["errors"][0]["code"]:
-                    _LOGGER.debug(
-                        f"a strava webhook subscription for {data[CONF_CALLBACK_URL]} already exists"
-                    )
-                else:
-                    return self.async_abort(reason="webhook_fail")
-            elif post_response.status == 201:
-                data[CONF_WEBHOOK_ID] = json.loads(await post_response.text())["id"]
-            else:
-                _LOGGER.warning(
-                    f"unexpected response (status code: {post_response.status}) while creating strava webhook subscription: {await post_response.text()}"
-                )
-
-        """
         return self.async_create_entry(title=self.flow_impl.name, data=data)
 
     async_step_user = async_step_get_oauth_info

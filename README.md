@@ -1,4 +1,4 @@
-# ha_strava
+# Strava Home Assistant Integration
 Custom Component for Home Assistant to integrate your Activity Data from Strava.
 
 
@@ -16,11 +16,11 @@ For every Strava activity, the Strava Home Assistant Integration creates a **dev
 * Pace (Minutes/Mile ; Minutes/Km)
 * Speed (Miles/Hour; Km/Hour)
 * Distance (Miles; Km)
-* # Kudos
+* \# Kudos
 * Kalories (cKal),
 * Elevation Gain (Feet, Meter)
 * Power (Watts)
-* # Trophies
+* \# Trophies
 
 **One additional sensor entity** will be available for every Strava activity to display Date & Title of the underlying activity.
 
@@ -59,8 +59,6 @@ Just locate the Strava Home Assistant Integration under `Configuration` > `Integ
 ### Configure sensor entities for different types of Strava Activities
 Strava Home Assistant exposes **five sensor entities for every Strava activity**. You customize the Strava-KPI for each of those five sensors as follows:
 
-![](ha_strava_ui_config.gif)
-
 1. Go to `Configuration` > `Integrations`
 2. Locate the Strava Home Assistant Integration and click on `Options`
 3. Leave the number of concurrent Strava Activities as is and hit `SUBMIT` to proceed
@@ -73,6 +71,8 @@ As of now, customization is only supported for **Ride, Run, and Hike activities*
 
 ### Integrate Strava Activities into your Home Assistant UI
 Below, you can find an example UI-configuration, which adds metrics from your two most recent Strava activities to a separate Lovelace Dashboard in Home Assitant.
+
+![](ha_strava_ui_config.gif)
 
 ```yaml
 title: Home

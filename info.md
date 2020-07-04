@@ -1,4 +1,4 @@
-# ha_strava
+# Strava Home Assistant Integration
 Custom Component for Home Assistant to integrate your Activity Data from Strava.
 
 
@@ -16,11 +16,11 @@ For every Strava activity, the Strava Home Assistant Integration creates a **dev
 * Pace (Minutes/Mile ; Minutes/Km)
 * Speed (Miles/Hour; Km/Hour)
 * Distance (Miles; Km)
-* # Kudos
+* \# Kudos
 * Kalories (cKal),
 * Elevation Gain (Feet, Meter)
 * Power (Watts)
-* # Trophies
+* \# Trophies
 
 Since every Strava activity gets its own virtual device, you can use the underlying sensor data in your **Dashboards and Automations**, just as you'd use any other sensor data in Home Assistant. 
 

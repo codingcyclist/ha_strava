@@ -6,24 +6,25 @@ Custom Component for Home Assistant to integrate your Activity Data from Strava.
 * Gives you access to **up to 10 of your most recent activities** in Strava. 
 * Supports both the **metric and the imperial** unit system
 * Activity data in Home Assistant **auto-updates** whenever you add, modify, or delete activities on Strava
+* Exposes **5 customizeable sensor entities** for each Strava activity
 * **Easy set-up**: only enter your Strava Client-ID and -secret and you're ready to go
 
 ![](sensor_overview.png)
 
+For every Strava activity, the Strava Home Assistant Integration creates a **device entity** in Home Assistant (max 10 activities). Each of these virtual device entities exposes **five sensor entities** which you can fully customize to display one of the following **activity KPIs**:
+* Duration (Minutes),
+* Pace (Minutes/Mile ; Minutes/Km)
+* Speed (Miles/Hour; Km/Hour)
+* Distance (Miles; Km)
+* # Kudos
+* Kalories (cKal),
+* Elevation Gain (Feet, Meter)
+* Power (Watts)
+* # Trophies
 
-For every Strava activity, the Strava Home Assistant Integration creates a **device entity** in Home Assistant (max 10 activities). Each of these virtual device entities comes with the following **sensor properties**:
+**One additional sensor entity** will be available for every Strava activity to display Date & Title of the underlying activity.
 
-* Date, Time & Title of the activity
-* Duration (based on moving time)
-* Pace
-* Distance 
-* Elevation Gain
-* Weighted Average Power
-* Calories
-* Kudos Count
-* Trophy Count
-
-Since every Strava activity gets its own virtual device, you can use the underlying sensor data in your **Dashboards and Automations**, just as you'd use any other sensor data in Home Assistant. To learn how to display information about your most recent Strava Activities, please reference the **configuration examples** below.
+Since every Strava activity gets its own virtual device, you can use the underlying sensor data in your **Dashboards and Automations**, just as you'd use any other sensor data in Home Assistant. To learn how to display information about your most recent Strava Activities, please reference the **UI-configuration example** below.
 
 ## Installation
 ### First, set up remote access to your Home Assistant Installation
@@ -43,19 +44,68 @@ Now is the time to fire up the Strava Home Assitant Integration for the first ti
 
 From within Home Assistant, head over to `Configuration` > `Integrations` and hit the "+"-symbol at the bottom. Search for "Strava Home Assistant" and click on the icon to add the Integration to Home Assistant. You'll automatically be prompted to enter your Strava API credentials. It'll take a few seconds to complete the set-up process after you've granted all the required permissions.
 
-## Configuration
-Upon completion of the installation process, the Strava Home Assistant integration **automatically creates device- and sensor entities** for you to access data from your most recent Strava activities. The number of sensor entities varies, depending on how many of your most recent Strava activities you whish to track from within Home Assistant (9 sensors per activity)
+## Configuration/Customization
+Upon completion of the installation process, the Strava Home Assistant integration **automatically creates device- and sensor entities** for you to access data from your most recent Strava activities. The number of sensor entities varies, depending on how many of your most recent Strava activities you whish to track from within Home Assistant (5 + 1 sensors per activity)
 
-### Increase/Decrease the number of Strava Activities avaiable in Home Assistant
+### Increase/Decrease the number of Strava activities avaiable in Home Assistant
 You can always **adjust the number of Strava activities you whish to track** from within Home Assistant (min 1; max 10). 
 
 ![](ha_strava_config.gif)
 
 Just locate the Strava Home Assistant Integration under `Configuration` > `Integrations`, click on `Options`, and use the slider to adjust the number of activities. After you've saved your settings, it might take a few minutes for Home Assistant to create the corresponding sensor entities and fetch the underlying data. The activities available in Home Assistant always correspond to the most recent ones under your Strava profile.
 
+### Configure sensor entities for different types of Strava Activities
+Strava Home Assistant exposes **five sensor entities for every Strava activity**. You customize the Strava-KPI for each of those five sensors as follows:
+1. Go to `Configuration` > `Integrations`
+2. Locate the Strava Home Assistant Integration and click on `Options`
+3. Leave the number of concurrent Strava Activities as is and hit `SUBMIT` to proceed
+4. Chose an activity type and configure the KPI-Sensor matching as you see fit
+5. Hit `SUBMIT` for your changes to take effect
+
+You can only change the sensor configuration for **one activity type at a time**. After you've completed the configuration for a given activity type, you can **start over** to change the sensor configuration for another activity type.
+
+As of now, customization is only supported for **Ride, Run, and Hike activities**.
+
 ### Integrate Strava Activities into your Home Assistant UI
-Below, you can find an example UI-configuration (.yaml) which adds metrics from your two most recent Strava activities to a separate Lovelace Dashboard in Home Assitant:
+Below, you can find an example UI-configuration, which adds metrics from your two most recent Strava activities to a separate Lovelace Dashboard in Home Assitant.
 
 ```yaml
-
+title: Home
+views:
+  - title: Strava
+    icon: 'mdi:strava'
+    path: strava
+    theme: ''
+    badges: []
+    cards:
+      - cards:
+          - entity: sensor.strava_0_0
+            type: entity
+          - entities:
+              - entity: sensor.strava_0_1
+              - entity: sensor.strava_0_2
+              - entity: sensor.strava_0_3
+              - entity: sensor.strava_0_4
+              - entity: sensor.strava_0_5
+            type: glance
+        type: vertical-stack
+      - cards:
+          - entity: sensor.strava_1_0
+            type: entity
+          - entities:
+              - entity: sensor.strava_1_1
+              - entity: sensor.strava_1_2
+              - entity: sensor.strava_1_3
+              - entity: sensor.strava_1_4
+              - entity: sensor.strava_1_5
+            type: glance
+        type: vertical-stack
 ```
+
+## Contributors
+- [@codingcyclist](https://github.com/codingcyclist)
+## TODO
+- [] Add customization support for more activity types
+- [] Add German language support
+- [] Add support for more KPIs
+- [] Write custom voluptuous validator for Sensor Config Options Flow

@@ -1,5 +1,5 @@
 # Strava Home Assistant Integration
-Custom Component for Home Assistant to integrate your Activity Data from Strava.
+Custom Component to integrate Activity Data from Strava into Home Assistant.
 
 
 ## Features

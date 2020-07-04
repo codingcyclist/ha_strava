@@ -1,67 +1,85 @@
 """Config flow for Strava Home Assistant."""
+# generic imports
 import logging
 import asyncio
 import aiohttp
 import json
 import voluptuous as vol
 
+# HASS imports
 from homeassistant import config_entries
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, HTTP_OK
 from homeassistant.core import callback
-from homeassistant.helpers import config_entry_oauth2_flow
+from homeassistant.helpers import config_entry_oauth2_flow, config_validation as cv
 from homeassistant.helpers.network import get_url, NoURLAvailableError
 from homeassistant.helpers.entity_registry import (
     async_get_registry,
     async_entries_for_config_entry,
 )
 
+# custom module imports
 from .sensor import StravaSummaryStatsSensor
 from .const import (
     DOMAIN,
     OAUTH2_AUTHORIZE,
     OAUTH2_TOKEN,
     WEBHOOK_SUBSCRIPTION_URL,
+    CONF_STRAVA_RELOAD_EVENT,
     CONF_WEBHOOK_ID,
     CONF_CALLBACK_URL,
     CONF_NB_ACTIVITIES,
     DEFAULT_NB_ACTIVITIES,
     MAX_NB_ACTIVITIES,
+    CONF_SENSOR_ACTIVITY_TYPE,
+    CONF_SENSOR_DURATION,
+    CONF_SENSOR_PACE,
+    CONF_SENSOR_SPEED,
+    CONF_SENSOR_DISTANCE,
+    CONF_SENSOR_KUDOS,
+    CONF_SENSOR_CALORIES,
+    CONF_SENSOR_ELEVATION,
+    CONF_SENSOR_POWER,
+    CONF_SENSOR_TROPHIES,
+    CONF_SENSOR_1,
+    CONF_SENSOR_2,
+    CONF_SENSOR_3,
+    CONF_SENSOR_4,
+    CONF_SENSOR_5,
+    CONF_ACTIVITY_TYPE_RUN,
+    CONF_ACTIVITY_TYPE_RIDE,
+    CONF_ACTIVITY_TYPE_HIKE,
+    CONF_ACTIVITY_TYPE_OTHER,
+    CONF_SENSOR_DEFAULT,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
+SENSOR_OPTIONS = [
+    CONF_SENSOR_DURATION,
+    CONF_SENSOR_PACE,
+    CONF_SENSOR_SPEED,
+    CONF_SENSOR_DISTANCE,
+    CONF_SENSOR_KUDOS,
+    CONF_SENSOR_CALORIES,
+    CONF_SENSOR_ELEVATION,
+    CONF_SENSOR_POWER,
+    CONF_SENSOR_TROPHIES,
+]
+
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
-    async def async_step_init(self, user_input=None):
-        ha_strava_config_entries = self.hass.config_entries.async_entries(domain=DOMAIN)
+    """
+    Data Entry flow to allow runntime changes to the Strava Home Assistant Config
+    """
 
-        if len(ha_strava_config_entries) != 1:
-            return self.async_abort(reason="no_config")
+    def __init__(self):
+        self._nb_activities = None
+        self._config_entry_title = None
 
-        if user_input is not None:
-            _entity_registry = await async_get_registry(hass=self.hass)
-            entities = async_entries_for_config_entry(
-                registry=_entity_registry,
-                config_entry_id=ha_strava_config_entries[0].entry_id,
-            )
-            for entity in entities:
-                if int(entity.entity_id.split("_")[-1]) >= int(
-                    user_input[CONF_NB_ACTIVITIES]
-                ):
-                    _LOGGER.debug(f"disabling entity {entity}")
-                    _entity_registry.async_update_entity(
-                        entity.entity_id, disabled_by="user"
-                    )
-                else:
-                    _entity_registry.async_update_entity(
-                        entity.entity_id, disabled_by=None
-                    )
-
-            return self.async_create_entry(
-                title=ha_strava_config_entries[0].title,
-                data={CONF_NB_ACTIVITIES: user_input[CONF_NB_ACTIVITIES]},
-            )
-
+    async def show_form_init(self):
+        """
+        Show form to customize the number of Strava activities to track in HASS
+        """
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
@@ -81,6 +99,141 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     )
                 }
             ),
+        )
+
+    async def show_form_sensor_options(self):
+        """
+        Show form to customize the sensor-KPI-mapping for particular types of activities
+        """
+        ha_strava_config_entries = self.hass.config_entries.async_entries(domain=DOMAIN)
+
+        if len(ha_strava_config_entries) != 1:
+            return self.async_abort(reason="no_config")
+
+        current_options = ha_strava_config_entries[0].options
+
+        return self.async_show_form(
+            step_id="sensor_options",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_SENSOR_ACTIVITY_TYPE): vol.In(
+                        [
+                            CONF_ACTIVITY_TYPE_RUN,
+                            CONF_ACTIVITY_TYPE_RIDE,
+                            CONF_ACTIVITY_TYPE_HIKE,
+                            CONF_ACTIVITY_TYPE_OTHER,
+                        ]
+                    ),
+                    vol.Optional(
+                        "icon",
+                        default=current_options.get(
+                            CONF_SENSOR_ACTIVITY_TYPE, CONF_SENSOR_DEFAULT
+                        )["icon"],
+                    ): str,
+                    vol.Optional(
+                        CONF_SENSOR_1,
+                        default=current_options.get(
+                            CONF_SENSOR_ACTIVITY_TYPE, CONF_SENSOR_DEFAULT
+                        )[CONF_SENSOR_1],
+                    ): vol.In(SENSOR_OPTIONS),
+                    vol.Optional(
+                        CONF_SENSOR_2,
+                        default=current_options.get(
+                            CONF_SENSOR_ACTIVITY_TYPE, CONF_SENSOR_DEFAULT
+                        )[CONF_SENSOR_2],
+                    ): vol.In(SENSOR_OPTIONS),
+                    vol.Optional(
+                        CONF_SENSOR_3,
+                        default=current_options.get(
+                            CONF_SENSOR_ACTIVITY_TYPE, CONF_SENSOR_DEFAULT
+                        )[CONF_SENSOR_3],
+                    ): vol.In(SENSOR_OPTIONS),
+                    vol.Optional(
+                        CONF_SENSOR_4,
+                        default=current_options.get(
+                            CONF_SENSOR_ACTIVITY_TYPE, CONF_SENSOR_DEFAULT
+                        )[CONF_SENSOR_4],
+                    ): vol.In(SENSOR_OPTIONS),
+                    vol.Optional(
+                        CONF_SENSOR_5,
+                        default=current_options.get(
+                            CONF_SENSOR_ACTIVITY_TYPE, CONF_SENSOR_DEFAULT
+                        )[CONF_SENSOR_5],
+                    ): vol.In(SENSOR_OPTIONS),
+                }
+            ),
+        )
+
+    async def async_step_init(self, user_input=None):
+        """
+        Initial OptionsFlow step - asks for the number of Strava activities to track in HASS
+        """
+        ha_strava_config_entries = self.hass.config_entries.async_entries(domain=DOMAIN)
+
+        if len(ha_strava_config_entries) != 1:
+            return self.async_abort(reason="no_config")
+
+        if user_input is not None:
+            _entity_registry = await async_get_registry(hass=self.hass)
+            entities = async_entries_for_config_entry(
+                registry=_entity_registry,
+                config_entry_id=ha_strava_config_entries[0].entry_id,
+            )
+            for entity in entities:
+                if int(entity.entity_id.split("_")[1]) >= int(
+                    user_input[CONF_NB_ACTIVITIES]
+                ):
+                    _LOGGER.debug(f"disabling entity {entity}")
+                    _entity_registry.async_update_entity(
+                        entity.entity_id, disabled_by="user"
+                    )
+                else:
+                    _entity_registry.async_update_entity(
+                        entity.entity_id, disabled_by=None
+                    )
+
+            self._nb_activities = user_input[CONF_NB_ACTIVITIES]
+            self._config_entry_title = ha_strava_config_entries[0].title
+            return await self.show_form_sensor_options()
+        return await self.show_form_init()
+
+    async def async_step_sensor_options(self, user_input):
+        """
+        Second (final) and optional OptionsFlow step - asks ask the user
+        to customize the sensor-KPI-mapping for particular types of activities
+        """
+        ha_strava_config_entries = self.hass.config_entries.async_entries(domain=DOMAIN)
+
+        if len(ha_strava_config_entries) != 1:
+            return self.async_abort(reason="no_config")
+
+        ha_strava_options = {
+            k: v for k, v in ha_strava_config_entries[0].options.items()
+        }
+
+        if user_input.get(CONF_SENSOR_ACTIVITY_TYPE, False):
+
+            sensor_config = ha_strava_options.get(
+                user_input[CONF_SENSOR_ACTIVITY_TYPE], {**CONF_SENSOR_DEFAULT}
+            )
+
+            sensor_config.update(
+                {
+                    "icon": user_input["icon"],
+                    CONF_SENSOR_1: user_input[CONF_SENSOR_1],
+                    CONF_SENSOR_2: user_input[CONF_SENSOR_2],
+                    CONF_SENSOR_3: user_input[CONF_SENSOR_3],
+                    CONF_SENSOR_4: user_input[CONF_SENSOR_4],
+                    CONF_SENSOR_5: user_input[CONF_SENSOR_5],
+                }
+            )
+
+            ha_strava_options[user_input[CONF_SENSOR_ACTIVITY_TYPE]] = sensor_config
+
+        ha_strava_options[CONF_NB_ACTIVITIES] = self._nb_activities
+
+        return self.async_create_entry(
+            title=self._config_entry_title, data=ha_strava_options,
         )
 
 
@@ -111,6 +264,7 @@ class OAuth2FlowHandler(
         return
 
     async def async_step_get_oauth_info(self, user_input=None):
+        """Ask user to provide Strava API Credentials"""
         data_schema = {
             vol.Required(CONF_CLIENT_ID): str,
             vol.Required(CONF_CLIENT_SECRET): str,

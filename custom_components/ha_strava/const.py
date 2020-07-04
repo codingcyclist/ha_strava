@@ -16,13 +16,15 @@ DEFAULT_NB_ACTIVITIES = 1
 MAX_NB_ACTIVITIES = 10
 
 # Event Specs
-CONF_STRAVA_UPDATE_EVENT = "strava_data_update"
+CONF_STRAVA_DATA_UPDATE_EVENT = "strava_data_update"
+CONF_STRAVA_CONFIG_UPDATE_EVENT = "strava_config_update"
 CONF_STRAVA_RELOAD_EVENT = "ha_strava_reload"
 
 # Sensor Specs
 CONF_SENSOR_DATE = "date"
 CONF_SENSOR_DURATION = "duration"
 CONF_SENSOR_PACE = "pace"
+CONF_SENSOR_SPEED = "speed"
 CONF_SENSOR_DISTANCE = "distance"
 CONF_SENSOR_KUDOS = "kudos"
 CONF_SENSOR_CALORIES = "kcal"
@@ -35,10 +37,14 @@ CONF_SENSOR_MOVING_TIME = "moving_time"
 CONF_SENSOR_ACTIVITY_TYPE = "activity_type"
 CONF_ACTIVITY_TYPE_RUN = "Run"
 CONF_ACTIVITY_TYPE_RIDE = "Ride"
+CONF_ACTIVITY_TYPE_HIKE = "Hike"
+CONF_ACTIVITY_TYPE_OTHER = "Other"
+
 CONF_SENSORS = {
     CONF_SENSOR_DATE: {"icon": "mdi:run"},
     CONF_SENSOR_DURATION: {"icon": "mdi:speedometer"},
     CONF_SENSOR_PACE: {"icon": "mdi:clock-fast"},
+    CONF_SENSOR_SPEED: {"icon": "mdi:clock-fast"},
     CONF_SENSOR_DISTANCE: {"icon": "mdi:ruler"},
     CONF_SENSOR_KUDOS: {"icon": "mdi:thumb-up-outline"},
     CONF_SENSOR_CALORIES: {"icon": "mdi:fire"},
@@ -49,3 +55,18 @@ CONF_SENSORS = {
 FACTOR_METER_TO_MILE = 0.000621371
 FACTOR_METER_TO_FEET = 3.28084
 FACTOR_KILOJOULES_TO_KILOCALORIES = 0.239006
+
+CONF_SENSOR_1 = "sensor_1"
+CONF_SENSOR_2 = "sensor_2"
+CONF_SENSOR_3 = "sensor_3"
+CONF_SENSOR_4 = "sensor_4"
+CONF_SENSOR_5 = "sensor_5"
+
+CONF_SENSOR_DEFAULT = {
+    "icon": "mdi:run",
+    CONF_SENSOR_1: CONF_SENSOR_DURATION,
+    CONF_SENSOR_2: CONF_SENSOR_PACE,
+    CONF_SENSOR_3: CONF_SENSOR_DISTANCE,
+    CONF_SENSOR_4: CONF_SENSOR_TROPHIES,
+    CONF_SENSOR_5: CONF_SENSOR_KUDOS,
+}

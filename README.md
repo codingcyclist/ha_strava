@@ -45,6 +45,8 @@ Now is the time to fire up the Strava Home Assitant Integration for the first ti
 From within Home Assistant, head over to `Configuration` > `Integrations` and hit the "+"-symbol at the bottom. Search for "Strava Home Assistant" and click on the icon to add the Integration to Home Assistant. You'll automatically be prompted to enter your Strava API credentials. It'll take a few seconds to complete the set-up process after you've granted all the required permissions.
 
 ## Configuration/Customization
+_Strava Home Assistant only supports configuration through the Home Assitant UI. Configuration via. `configuration.yaml` will be deprecated (official announcement to the HA community)[https://www.home-assistant.io/blog/2020/04/14/the-future-of-yaml/] and is therefore not supported._
+
 Upon completion of the installation process, the Strava Home Assistant integration **automatically creates device- and sensor entities** for you to access data from your most recent Strava activities. The number of sensor entities varies, depending on how many of your most recent Strava activities you whish to track from within Home Assistant (5 + 1 sensors per activity)
 
 ### Increase/Decrease the number of Strava activities avaiable in Home Assistant
@@ -56,6 +58,9 @@ Just locate the Strava Home Assistant Integration under `Configuration` > `Integ
 
 ### Configure sensor entities for different types of Strava Activities
 Strava Home Assistant exposes **five sensor entities for every Strava activity**. You customize the Strava-KPI for each of those five sensors as follows:
+
+![](ha_strava_ui_config.gif)
+
 1. Go to `Configuration` > `Integrations`
 2. Locate the Strava Home Assistant Integration and click on `Options`
 3. Leave the number of concurrent Strava Activities as is and hit `SUBMIT` to proceed

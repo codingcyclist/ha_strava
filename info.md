@@ -22,7 +22,7 @@ For every Strava activity, the Strava Home Assistant Integration creates a **dev
 * Power (Watts)
 * # Trophies
 
-Since every Strava activity gets its own virtual device, you can use the underlying sensor data in your **Dashboards and Automations**, just as you'd use any other sensor data in Home Assistant. To learn how to display KPIs from your most recent Strava activities, please reference the **UI-configuration example** below.
+Since every Strava activity gets its own virtual device, you can use the underlying sensor data in your **Dashboards and Automations**, just as you'd use any other sensor data in Home Assistant. 
 
 ## Installation
 1. Set up remote access to your Home Assistant Installation

@@ -80,6 +80,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         """
         Show form to customize the number of Strava activities to track in HASS
         """
+        ha_strava_config_entries = self.hass.config_entries.async_entries(domain=DOMAIN)
+
+        if len(ha_strava_config_entries) != 1:
+            return self.async_abort(reason="no_config")
+
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(

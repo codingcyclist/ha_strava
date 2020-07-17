@@ -80,13 +80,13 @@ class StravaWebhookView(HomeAssistantView):
 
     def __init__(
         self,
-        websession: config_entry_oauth2_flow.OAuth2Session,
+        oauth_websession: config_entry_oauth2_flow.OAuth2Session,
         event_factory: Callable,
         host: str,
         hass: HomeAssistant,
     ):
         """Init the view."""
-        self.websession = websession
+        self.oauth_websession = oauth_websession
         self.event_factory = event_factory
         self.webhook_id = None
         self.host = host
@@ -101,7 +101,7 @@ class StravaWebhookView(HomeAssistantView):
 
         _LOGGER.debug("Fetching Data from Strava API")
 
-        activities_response = await self.websession.async_request(
+        activities_response = await self.oauth_websession.async_request(
             method="GET",
             url=f"https://www.strava.com/api/v3/athlete/activities?per_page={MAX_NB_ACTIVITIES}",
         )
@@ -110,7 +110,7 @@ class StravaWebhookView(HomeAssistantView):
             activities = json.loads(await activities_response.text())
             cities = []
             for activity in activities:
-                geo_location_response = await self.websession.async_request(
+                geo_location_response = await self.oauth_websession.async_request(
                     method="GET",
                     url=f'https://geocode.xyz/{activity.get("start_latitude", 0)},{activity.get("start_longitude", 0)}?geoit=json',
                 )
@@ -218,85 +218,85 @@ async def renew_webhook_subscription(
 
     config_data[CONF_CALLBACK_URL] = f"{ha_host}/api/strava/webhook"
 
-    async with ClientSession() as websession:
-        callback_response = await websession.get(url=config_data[CONF_CALLBACK_URL])
+    websession = async_get_clientsession(hass, verify_ssl=False)
+    callback_response = await websession.get(url=config_data[CONF_CALLBACK_URL])
 
-        if callback_response.status != 200:
-            _LOGGER.error(
-                f"HA Callback URL for Strava Webhook not available: {await callback_response.text()}"
-            )
-            return
-
-        existing_webhook_subscriptions_response = await websession.get(
-            url=WEBHOOK_SUBSCRIPTION_URL,
-            params={
-                "client_id": entry.data[CONF_CLIENT_ID],
-                "client_secret": entry.data[CONF_CLIENT_SECRET],
-            },
+    if callback_response.status != 200:
+        _LOGGER.error(
+            f"HA Callback URL for Strava Webhook not available: {await callback_response.text()}"
         )
+        return
 
-        existing_webhook_subscriptions = json.loads(
-            await existing_webhook_subscriptions_response.text()
-        )
+    existing_webhook_subscriptions_response = await websession.get(
+        url=WEBHOOK_SUBSCRIPTION_URL,
+        params={
+            "client_id": entry.data[CONF_CLIENT_ID],
+            "client_secret": entry.data[CONF_CLIENT_SECRET],
+        },
+    )
 
-        if len(existing_webhook_subscriptions) == 1:
+    existing_webhook_subscriptions = json.loads(
+        await existing_webhook_subscriptions_response.text()
+    )
 
-            config_data[CONF_WEBHOOK_ID] = existing_webhook_subscriptions[0]["id"]
+    if len(existing_webhook_subscriptions) == 1:
 
-            if (
-                config_data[CONF_CALLBACK_URL]
-                != existing_webhook_subscriptions[0][CONF_CALLBACK_URL]
-            ):
-                _LOGGER.debug(
-                    f"Deleting outdated Strava Webhook Subscription for {existing_webhook_subscriptions[0][CONF_CALLBACK_URL]}"
-                )
+        config_data[CONF_WEBHOOK_ID] = existing_webhook_subscriptions[0]["id"]
 
-                delete_response = await websession.delete(
-                    url=WEBHOOK_SUBSCRIPTION_URL + f"/{config_data[CONF_WEBHOOK_ID]}",
-                    data={
-                        "client_id": config_data[CONF_CLIENT_ID],
-                        "client_secret": config_data[CONF_CLIENT_SECRET],
-                    },
-                )
-
-                if delete_response.status == 204:
-                    _LOGGER.debug(
-                        "Successfully deleted outdated Strava Webhook Subscription"
-                    )
-                    existing_webhook_subscriptions = []
-                else:
-                    _LOGGER.error(
-                        f"Unexpected response (status code: {delete_response.status}) while deleting Strava Webhook Subscription: {await delete_response.text()}"
-                    )
-                    return
-
-        elif len(existing_webhook_subscriptions) == 0:
+        if (
+            config_data[CONF_CALLBACK_URL]
+            != existing_webhook_subscriptions[0][CONF_CALLBACK_URL]
+        ):
             _LOGGER.debug(
-                f"Creating a new Strava Webhook subscription for {config_data[CONF_CALLBACK_URL]}"
+                f"Deleting outdated Strava Webhook Subscription for {existing_webhook_subscriptions[0][CONF_CALLBACK_URL]}"
             )
-            post_response = await websession.post(
-                url=WEBHOOK_SUBSCRIPTION_URL,
+
+            delete_response = await websession.delete(
+                url=WEBHOOK_SUBSCRIPTION_URL + f"/{config_data[CONF_WEBHOOK_ID]}",
                 data={
-                    CONF_CLIENT_ID: config_data[CONF_CLIENT_ID],
-                    CONF_CLIENT_SECRET: config_data[CONF_CLIENT_SECRET],
-                    CONF_CALLBACK_URL: config_data[CONF_CALLBACK_URL],
-                    "verify_token": "HA_STRAVA",
+                    "client_id": config_data[CONF_CLIENT_ID],
+                    "client_secret": config_data[CONF_CLIENT_SECRET],
                 },
             )
-            if post_response.status == 201:
-                post_response_content = json.loads(await post_response.text())
-                config_data[CONF_WEBHOOK_ID] = post_response_content["id"]
+
+            if delete_response.status == 204:
+                _LOGGER.debug(
+                    "Successfully deleted outdated Strava Webhook Subscription"
+                )
+                existing_webhook_subscriptions = []
             else:
                 _LOGGER.error(
-                    f"Unexpected response (status code: {post_response.status}) while creating Strava Webhook Subscription: {await post_response.text()}"
+                    f"Unexpected response (status code: {delete_response.status}) while deleting Strava Webhook Subscription: {await delete_response.text()}"
                 )
                 return
 
+    elif len(existing_webhook_subscriptions) == 0:
+        _LOGGER.debug(
+            f"Creating a new Strava Webhook subscription for {config_data[CONF_CALLBACK_URL]}"
+        )
+        post_response = await websession.post(
+            url=WEBHOOK_SUBSCRIPTION_URL,
+            data={
+                CONF_CLIENT_ID: config_data[CONF_CLIENT_ID],
+                CONF_CLIENT_SECRET: config_data[CONF_CLIENT_SECRET],
+                CONF_CALLBACK_URL: config_data[CONF_CALLBACK_URL],
+                "verify_token": "HA_STRAVA",
+            },
+        )
+        if post_response.status == 201:
+            post_response_content = json.loads(await post_response.text())
+            config_data[CONF_WEBHOOK_ID] = post_response_content["id"]
         else:
             _LOGGER.error(
-                f"Expected 1 existing Strava Webhook subscription for {config_data[CONF_CALLBACK_URL]}: Found {len(existing_webhook_subscriptions)}"
+                f"Unexpected response (status code: {post_response.status}) while creating Strava Webhook Subscription: {await post_response.text()}"
             )
             return
+
+    else:
+        _LOGGER.error(
+            f"Expected 1 existing Strava Webhook subscription for {config_data[CONF_CALLBACK_URL]}: Found {len(existing_webhook_subscriptions)}"
+        )
+        return
 
     hass.config_entries.async_update_entry(entry=entry, data=config_data)
 
@@ -341,16 +341,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
         OAuth2FlowHandler.async_register_implementation(hass, implementation)
 
-    session = config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation)
+    oauth_websession = config_entry_oauth2_flow.OAuth2Session(
+        hass, entry, implementation
+    )
 
-    await session.async_ensure_token_valid()
+    await oauth_websession.async_ensure_token_valid()
 
     # webhook view to get notifications for strava activity updates
     def strava_update_event_factory(data):
         hass.bus.fire(CONF_STRAVA_DATA_UPDATE_EVENT, data)
 
     strava_webhook_view = StravaWebhookView(
-        websession=session,
+        oauth_websession=oauth_websession,
         event_factory=strava_update_event_factory,
         host=get_url(hass, allow_internal=False, allow_ip=False),
         hass=hass,
@@ -402,15 +404,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # register event listeners
     hass.data[DOMAIN]["remove_update_listener"] = []
 
-    if hass.bus.async_listeners().get(EVENT_HOMEASSISTANT_START, 0) < 1:
-        hass.data[DOMAIN]["remove_update_listener"].append(
-            hass.bus.async_listen(EVENT_HOMEASSISTANT_START, ha_start_handler)
-        )
+    # if hass.bus.async_listeners().get(EVENT_HOMEASSISTANT_START, 0) < 1:
+    hass.data[DOMAIN]["remove_update_listener"].append(
+        hass.bus.async_listen(EVENT_HOMEASSISTANT_START, ha_start_handler)
+    )
 
-    if hass.bus.async_listeners().get(EVENT_CORE_CONFIG_UPDATE, 0) < 1:
-        hass.data[DOMAIN]["remove_update_listener"].append(
-            hass.bus.async_listen(EVENT_CORE_CONFIG_UPDATE, core_config_update_handler)
-        )
+    # if hass.bus.async_listeners().get(EVENT_CORE_CONFIG_UPDATE, 0) < 1:
+    hass.data[DOMAIN]["remove_update_listener"].append(
+        hass.bus.async_listen(EVENT_CORE_CONFIG_UPDATE, core_config_update_handler)
+    )
 
     if hass.bus.async_listeners().get(CONF_STRAVA_RELOAD_EVENT, 0) < 1:
         hass.data[DOMAIN]["remove_update_listener"].append(
@@ -447,43 +449,43 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
         remove_listener()
 
     # delete strava webhook subscription
-    async with ClientSession() as websession:
-        existing_webhook_subscriptions_response = await websession.get(
-            url=WEBHOOK_SUBSCRIPTION_URL,
-            params={
+    websession = async_get_clientsession(hass, verify_ssl=False)
+    existing_webhook_subscriptions_response = await websession.get(
+        url=WEBHOOK_SUBSCRIPTION_URL,
+        params={
+            "client_id": entry.data[CONF_CLIENT_ID],
+            "client_secret": entry.data[CONF_CLIENT_SECRET],
+        },
+    )
+
+    existing_webhook_subscriptions = json.loads(
+        await existing_webhook_subscriptions_response.text()
+    )
+
+    if len(existing_webhook_subscriptions) == 1:
+        delete_response = await websession.delete(
+            url=WEBHOOK_SUBSCRIPTION_URL
+            + f"/{existing_webhook_subscriptions[0]['id']}",
+            data={
                 "client_id": entry.data[CONF_CLIENT_ID],
                 "client_secret": entry.data[CONF_CLIENT_SECRET],
             },
         )
 
-        existing_webhook_subscriptions = json.loads(
-            await existing_webhook_subscriptions_response.text()
-        )
-
-        if len(existing_webhook_subscriptions) == 1:
-            delete_response = await websession.delete(
-                url=WEBHOOK_SUBSCRIPTION_URL
-                + f"/{existing_webhook_subscriptions[0]['id']}",
-                data={
-                    "client_id": entry.data[CONF_CLIENT_ID],
-                    "client_secret": entry.data[CONF_CLIENT_SECRET],
-                },
+        if delete_response.status == 204:
+            _LOGGER.debug(
+                f"Successfully deleted strava webhook subscription for {entry.data[CONF_CALLBACK_URL]}"
             )
-
-            if delete_response.status == 204:
-                _LOGGER.debug(
-                    f"Successfully deleted strava webhook subscription for {entry.data[CONF_CALLBACK_URL]}"
-                )
-            else:
-                _LOGGER.error(
-                    f"Strava webhook for {entry.data[CONF_CALLBACK_URL]} could not be deleted: {await delete_response.text()}"
-                )
-                return False
         else:
             _LOGGER.error(
-                f"Expected 1 webhook subscription for {entry.data[CONF_CALLBACK_URL]}; found: {len(existing_webhook_subscriptions)}"
+                f"Strava webhook for {entry.data[CONF_CALLBACK_URL]} could not be deleted: {await delete_response.text()}"
             )
             return False
+    else:
+        _LOGGER.error(
+            f"Expected 1 webhook subscription for {entry.data[CONF_CALLBACK_URL]}; found: {len(existing_webhook_subscriptions)}"
+        )
+        return False
 
     unload_ok = all(
         await asyncio.gather(

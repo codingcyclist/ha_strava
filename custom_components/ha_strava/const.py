@@ -12,7 +12,7 @@ CONF_WEBHOOK_ID = "webhook_id"
 CONF_CALLBACK_URL = "callback_url"
 WEBHOOK_SUBSCRIPTION_URL = "https://www.strava.com/api/v3/push_subscriptions"
 CONF_NB_ACTIVITIES = "nb_activities"
-DEFAULT_NB_ACTIVITIES = 1
+DEFAULT_NB_ACTIVITIES = 2
 MAX_NB_ACTIVITIES = 10
 
 # Event Specs

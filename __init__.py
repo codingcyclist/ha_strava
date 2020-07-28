@@ -63,7 +63,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["sensor"]
+PLATFORMS = ["sensor", "camera"]
 
 
 class StravaWebhookView(HomeAssistantView):

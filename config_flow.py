@@ -24,6 +24,8 @@ from .const import (
     OAUTH2_AUTHORIZE,
     OAUTH2_TOKEN,
     WEBHOOK_SUBSCRIPTION_URL,
+    CONF_PHOTOS,
+    CONF_PHOTOS_ENTITY,
     CONF_STRAVA_RELOAD_EVENT,
     CONF_WEBHOOK_ID,
     CONF_CALLBACK_URL,
@@ -101,7 +103,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             max=MAX_NB_ACTIVITIES,
                             msg=f"max = {MAX_NB_ACTIVITIES}",
                         ),
-                    )
+                    ),
+                    vol.Required(
+                        CONF_PHOTOS,
+                        default=ha_strava_config_entries[0].data.get(CONF_PHOTOS, True),
+                    ): bool,
                 }
             ),
         )
@@ -184,18 +190,29 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 registry=_entity_registry,
                 config_entry_id=ha_strava_config_entries[0].entry_id,
             )
+            camera_entity = _entity_registry.async_get(entity_id=CONF_PHOTOS_ENTITY)
+
             for entity in entities:
-                if int(entity.entity_id.split("_")[1]) >= int(
-                    user_input[CONF_NB_ACTIVITIES]
-                ):
-                    _LOGGER.debug(f"disabling entity {entity}")
-                    _entity_registry.async_update_entity(
-                        entity.entity_id, disabled_by="user"
-                    )
-                else:
-                    _entity_registry.async_update_entity(
-                        entity.entity_id, disabled_by=None
-                    )
+                if entity.entity_id != CONF_PHOTOS_ENTITY:
+                    if int(entity.entity_id.split("_")[1]) >= int(
+                        user_input[CONF_NB_ACTIVITIES]
+                    ):
+                        _LOGGER.debug(f"disabling entity {entity}")
+                        _entity_registry.async_update_entity(
+                            entity.entity_id, disabled_by="user"
+                        )
+                    else:
+                        _entity_registry.async_update_entity(
+                            entity.entity_id, disabled_by=None
+                        )
+            if user_input[CONF_PHOTOS]:
+                _entity_registry.async_update_entity(
+                    entity_id=camera_entity.entity_id, disabled_by=None
+                )
+            else:
+                _entity_registry.async_update_entity(
+                    entity_id=camera_entity.entity_id, disabled_by="user"
+                )
 
             self._nb_activities = user_input[CONF_NB_ACTIVITIES]
             self._config_entry_title = ha_strava_config_entries[0].title
@@ -249,6 +266,7 @@ class OAuth2FlowHandler(
 
     DOMAIN = DOMAIN
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_PUSH
+    _import_photos_from_strava = True
 
     @property
     def logger(self) -> logging.Logger:
@@ -273,6 +291,7 @@ class OAuth2FlowHandler(
         data_schema = {
             vol.Required(CONF_CLIENT_ID): str,
             vol.Required(CONF_CLIENT_SECRET): str,
+            vol.Required(CONF_PHOTOS, default=self._import_photos_from_strava): bool,
         }
 
         assert self.hass is not None
@@ -286,6 +305,7 @@ class OAuth2FlowHandler(
             return self.async_abort(reason="no_public_url")
 
         if user_input is not None:
+            self._import_photos_from_strava = user_input[CONF_PHOTOS]
             config_entry_oauth2_flow.async_register_implementation(
                 self.hass,
                 DOMAIN,
@@ -310,6 +330,7 @@ class OAuth2FlowHandler(
         ] = f"{get_url(self.hass, allow_internal=False, allow_ip=False)}/api/strava/webhook"
         data[CONF_CLIENT_ID] = self.flow_impl.client_id
         data[CONF_CLIENT_SECRET] = self.flow_impl.client_secret
+        data[CONF_PHOTOS] = self._import_photos_from_strava
 
         return self.async_create_entry(title=self.flow_impl.name, data=data)
 

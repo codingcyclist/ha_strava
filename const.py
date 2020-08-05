@@ -7,6 +7,10 @@ AUTH_CALLBACK_PATH = "/auth/external/callback"
 OAUTH2_AUTHORIZE = "https://www.strava.com/oauth/authorize"
 OAUTH2_TOKEN = "https://www.strava.com/oauth/token"
 
+# Camera Config
+CONF_PHOTOS = "conf_photos"
+CONF_PHOTOS_ENTITY = "strava_cam"
+
 # Webhook & API Specs
 CONF_WEBHOOK_ID = "webhook_id"
 CONF_CALLBACK_URL = "callback_url"
@@ -19,6 +23,9 @@ MAX_NB_ACTIVITIES = 10
 CONF_STRAVA_DATA_UPDATE_EVENT = "strava_data_update"
 CONF_STRAVA_CONFIG_UPDATE_EVENT = "strava_config_update"
 CONF_STRAVA_RELOAD_EVENT = "ha_strava_reload"
+CONF_IMG_UPDATE_EVENT = "ha_strava_new_images"
+CONF_IMG_ROTATE_EVENT = "ha_strava_rotate_images"
+CONFIG_IMG_SIZE = 512
 
 # Sensor Specs
 CONF_SENSOR_DATE = "date"

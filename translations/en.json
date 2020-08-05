@@ -15,7 +15,8 @@
         "description": "You can find more information on how to obtain your Strava API Credentials here: https://www.strava.com/settings/api",
         "data": {
           "client_id": "Client ID",
-          "client_secret": "Client Secret"
+          "client_secret": "Client Secret",
+          "conf_photos": "Import Photos from Strava?"
         }
       }
     }

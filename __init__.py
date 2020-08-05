@@ -38,6 +38,9 @@ from .const import (
     DOMAIN,
     OAUTH2_AUTHORIZE,
     OAUTH2_TOKEN,
+    CONFIG_IMG_SIZE,
+    CONF_IMG_UPDATE_EVENT,
+    CONF_IMG_ROTATE_EVENT,
     WEBHOOK_SUBSCRIPTION_URL,
     CONF_CALLBACK_URL,
     AUTH_CALLBACK_PATH,
@@ -109,7 +112,9 @@ class StravaWebhookView(HomeAssistantView):
         if activities_response.status == 200:
             activities = json.loads(await activities_response.text())
             cities = []
+            activity_ids = []
             for activity in activities:
+                activity_ids.append(activity.get("id"))
                 geo_location_response = await self.oauth_websession.async_request(
                     method="GET",
                     url=f'https://geocode.xyz/{activity.get("start_latitude", 0)},{activity.get("start_longitude", 0)}?geoit=json',
@@ -155,13 +160,38 @@ class StravaWebhookView(HomeAssistantView):
                 reverse=True,
             )
 
+            img_urls = []
+            for activity_id in activity_ids:
+                img_request_url = f"https://www.strava.com/api/v3/activities/{activity_id}/photos?size={CONFIG_IMG_SIZE}"
+                img_response = await self.oauth_websession.async_request(
+                    method="GET", url=img_request_url,
+                )
+
+                if img_response.status == 200:
+                    images = json.loads(await img_response.text())
+                    for image in images:
+                        img_date = dt.strptime(
+                            image.get("created_at_local", "2000-01-01T00:00:00Z"),
+                            "%Y-%m-%dT%H:%M:%SZ",
+                        )
+                        img_url = list(image.get("urls").values())[0]
+                        img_urls.append({"date": img_date, "url": img_url})
+                else:
+                    _LOGGER.error(
+                        f"Could not fetch strava image urls from {img_request_url} (response code: {img_response.status}): {await img_response.text()}"
+                    )
+                    return
+
         else:
             _LOGGER.error(
                 f"Could not fetch strava activities (response code: {activities_response.status}): {await activities_response.text()}"
             )
             return
 
-        self.event_factory({"activities": activities})
+        self.event_factory(data={"activities": activities})
+        self.event_factory(
+            data={"img_urls": img_urls}, event_type=CONF_IMG_UPDATE_EVENT
+        )
         return
 
     async def get(self, request):
@@ -348,8 +378,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await oauth_websession.async_ensure_token_valid()
 
     # webhook view to get notifications for strava activity updates
-    def strava_update_event_factory(data):
-        hass.bus.fire(CONF_STRAVA_DATA_UPDATE_EVENT, data)
+    def strava_update_event_factory(data, event_type=CONF_STRAVA_DATA_UPDATE_EVENT):
+        hass.bus.fire(event_type, data)
 
     strava_webhook_view = StravaWebhookView(
         oauth_websession=oauth_websession,

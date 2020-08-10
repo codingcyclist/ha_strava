@@ -10,40 +10,76 @@ from .const import (
     CONF_PHOTOS,
     CONF_IMG_UPDATE_EVENT,
     CONF_IMG_ROTATE_EVENT,
+    CONF_IMG_UPDATE_INTERVAL_SECONDS,
+    CONF_IMG_UPDATE_INTERVAL_SECONDS_DEFAULT,
+    CONF_MAX_NB_IMAGES,
 )
+
+from homeassistant.const import EVENT_TIME_CHANGED
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
-    """Set up the Camera that works with images from the web."""
-    camera = UrlCam(name=DOMAIN)
-    _LOGGER.debug(f"config entry: {config_entry}")
+    """
+    Set up the Camera that displays images from Strava.
+    Works via image-URLs, not via local file storage
+    """
+
     if not config_entry.data.get(CONF_PHOTOS, False):
-        camera.disabled_by = "user"
+        camera = UrlCam(default_enabled=False)
+
+    camera = UrlCam(default_enabled=True)
+
     async_add_entities([camera])
+
+    def image_update_listener(event):
+        """listen for time update event (every second) and update images if appropriate"""
+        ha_strava_config_entries = hass.config_entries.async_entries(domain=DOMAIN)
+
+        if len(ha_strava_config_entries) != 1:
+            return -1
+
+        img_update_interval_seconds = int(
+            ha_strava_config_entries[0].options.get(
+                CONF_IMG_UPDATE_INTERVAL_SECONDS,
+                CONF_IMG_UPDATE_INTERVAL_SECONDS_DEFAULT,
+            )
+        )
+
+        if event.data["now"].second % img_update_interval_seconds == 0:
+            camera.rotate_img()
+
+    hass.data[DOMAIN]["remove_update_listener"].append(
+        hass.bus.async_listen(EVENT_TIME_CHANGED, image_update_listener)
+    )
+
     return
 
 
 class UrlCam(Camera):
-    """Representation of a URL camera."""
+    """
+    Representation of a camera entity that can display images from Strava Image URL.
+    Image URLs are fetched from the strava API and the URLs come as payload of the strava data update event
+    Up to 100 URLs are stored in the Camera object
+    """
 
-    def __init__(self, name: str):
-        """Initialize Local File Camera component."""
+    def __init__(self, default_enabled=True):
+        """Initialize Camera component."""
         super().__init__()
 
-        self._name = name
         self._urls = []
         self._url_index = 0
         self._default_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/No_image_available_600_x_450.svg/1280px-No_image_available_600_x_450.svg.png"
-        self._max_images = 100
-        self._rotate_img = False
+        self._max_images = CONF_MAX_NB_IMAGES
+        self._default_enabled = default_enabled
 
     def _return_default_img(self):
         img_response = requests.get(url=self._default_url)
         return img_response.content
 
     def is_url_valid(self, url):
+        """test wethere a n image URL returns a valid resonse"""
         img_response = requests.get(url=url)
         if img_response.status_code == 200:
             return True
@@ -54,10 +90,6 @@ class UrlCam(Camera):
 
     def camera_image(self):
         """Return image response."""
-        if self._rotate_img:
-            self.rotate_img()
-        self._rotate_img = not self._rotate_img
-
         if len(self._urls) == self._url_index:
             _LOGGER.debug("No custom image urls....serving default image")
             return self._return_default_img()
@@ -72,12 +104,15 @@ class UrlCam(Camera):
             return self._return_default_img()
 
     def rotate_img(self):
+        if len(self._urls) == 0:
+            return
         self._url_index = (self._url_index + 1) % len(self._urls)
-        self.schedule_update_ha_state()
+        self.async_write_ha_state()
+        return
+        # self.schedule_update_ha_state()
 
     @property
     def state(self):
-        _LOGGER.debug("Camera state called!")
         if len(self._urls) == self._url_index:
             return self._default_url
         return self._urls[self._url_index]["url"]
@@ -89,7 +124,7 @@ class UrlCam(Camera):
     @property
     def name(self):
         """Return the name of this camera."""
-        return self._name
+        return CONF_PHOTOS_ENTITY
 
     @property
     def device_state_attributes(self):
@@ -111,6 +146,10 @@ class UrlCam(Camera):
         )
         self._urls = img_urls[-self._max_images :]
         return
+
+    @property
+    def entity_registry_enabled_default(self) -> bool:
+        return self._default_enabled
 
     async def async_added_to_hass(self):
         self.hass.bus.async_listen(CONF_IMG_UPDATE_EVENT, self.img_update_handler)

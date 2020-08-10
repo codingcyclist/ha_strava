@@ -52,6 +52,8 @@ from .const import (
     CONF_ACTIVITY_TYPE_HIKE,
     CONF_ACTIVITY_TYPE_OTHER,
     CONF_SENSOR_DEFAULT,
+    CONF_IMG_UPDATE_INTERVAL_SECONDS,
+    CONF_IMG_UPDATE_INTERVAL_SECONDS_DEFAULT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -105,8 +107,21 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         ),
                     ),
                     vol.Required(
+                        CONF_IMG_UPDATE_INTERVAL_SECONDS,
+                        default=ha_strava_config_entries[0].options.get(
+                            CONF_IMG_UPDATE_INTERVAL_SECONDS,
+                            CONF_IMG_UPDATE_INTERVAL_SECONDS_DEFAULT,
+                        ),
+                    ): vol.All(
+                        vol.Coerce(int),
+                        vol.Range(min=1, max=60, msg=f"max = 60 seconds",),
+                    ),
+                    vol.Required(
                         CONF_PHOTOS,
-                        default=ha_strava_config_entries[0].data.get(CONF_PHOTOS, True),
+                        default=ha_strava_config_entries[0].options.get(
+                            CONF_PHOTOS,
+                            ha_strava_config_entries[0].data.get(CONF_PHOTOS),
+                        ),
                     ): bool,
                 }
             ),
@@ -190,10 +205,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 registry=_entity_registry,
                 config_entry_id=ha_strava_config_entries[0].entry_id,
             )
-            camera_entity = _entity_registry.async_get(entity_id=CONF_PHOTOS_ENTITY)
 
             for entity in entities:
-                if entity.entity_id != CONF_PHOTOS_ENTITY:
+
+                try:
                     if int(entity.entity_id.split("_")[1]) >= int(
                         user_input[CONF_NB_ACTIVITIES]
                     ):
@@ -205,16 +220,21 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         _entity_registry.async_update_entity(
                             entity.entity_id, disabled_by=None
                         )
-            if user_input[CONF_PHOTOS]:
-                _entity_registry.async_update_entity(
-                    entity_id=camera_entity.entity_id, disabled_by=None
-                )
-            else:
-                _entity_registry.async_update_entity(
-                    entity_id=camera_entity.entity_id, disabled_by="user"
-                )
+                except ValueError:
+                    if user_input[CONF_PHOTOS]:
+                        _entity_registry.async_update_entity(
+                            entity_id=entity.entity_id, disabled_by=None
+                        )
+                    else:
+                        _entity_registry.async_update_entity(
+                            entity_id=entity.entity_id, disabled_by="user"
+                        )
 
             self._nb_activities = user_input[CONF_NB_ACTIVITIES]
+            self._import_strava_images = user_input[CONF_PHOTOS]
+            self._img_update_interval_seconds = int(
+                user_input[CONF_IMG_UPDATE_INTERVAL_SECONDS]
+            )
             self._config_entry_title = ha_strava_config_entries[0].title
             return await self.show_form_sensor_options()
         return await self.show_form_init()
@@ -253,6 +273,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             ha_strava_options[user_input[CONF_SENSOR_ACTIVITY_TYPE]] = sensor_config
 
         ha_strava_options[CONF_NB_ACTIVITIES] = self._nb_activities
+        ha_strava_options[
+            CONF_IMG_UPDATE_INTERVAL_SECONDS
+        ] = self._img_update_interval_seconds
+        ha_strava_options[CONF_PHOTOS] = self._import_strava_images
 
         return self.async_create_entry(
             title=self._config_entry_title, data=ha_strava_options,

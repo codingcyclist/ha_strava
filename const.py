@@ -11,6 +11,7 @@ OAUTH2_TOKEN = "https://www.strava.com/oauth/token"
 CONF_PHOTOS = "conf_photos"
 CONF_PHOTOS_ENTITY = "strava_cam"
 CONFIG_IMG_SIZE = 512
+CONFIG_URL_DUMP_FILENAME = "strava_img_urls.pickle"
 CONF_IMG_UPDATE_INTERVAL_SECONDS = "img_update_interval_seconds"
 CONF_IMG_UPDATE_INTERVAL_SECONDS_DEFAULT = 5
 CONF_MAX_NB_IMAGES = 100

@@ -2,6 +2,7 @@ import logging
 from homeassistant.components.camera import Camera
 import requests
 import os
+import pickle
 from homeassistant.components.local_file.camera import LocalFile
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .const import (
@@ -13,6 +14,7 @@ from .const import (
     CONF_IMG_UPDATE_INTERVAL_SECONDS,
     CONF_IMG_UPDATE_INTERVAL_SECONDS_DEFAULT,
     CONF_MAX_NB_IMAGES,
+    CONFIG_URL_DUMP_FILENAME,
 )
 
 from homeassistant.const import EVENT_TIME_CHANGED
@@ -26,10 +28,11 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     Works via image-URLs, not via local file storage
     """
 
+    _LOGGER.debug(f"are photos configured? {config_entry.data.get(CONF_PHOTOS, False)}")
     if not config_entry.data.get(CONF_PHOTOS, False):
         camera = UrlCam(default_enabled=False)
-
-    camera = UrlCam(default_enabled=True)
+    else:
+        camera = UrlCam(default_enabled=True)
 
     async_add_entities([camera])
 
@@ -68,11 +71,27 @@ class UrlCam(Camera):
         """Initialize Camera component."""
         super().__init__()
 
-        self._urls = []
+        self._url_dump_filepath = os.path.join(
+            os.path.split(os.path.abspath(__file__))[0], CONFIG_URL_DUMP_FILENAME
+        )
+        _LOGGER.debug(f"url dump filepath: {self._url_dump_filepath}")
+
+        if os.path.exists(self._url_dump_filepath):
+            with open(self._url_dump_filepath, "rb") as file:
+                self._urls = pickle.load(file)
+        else:
+            self._urls = []
+            self._pickle_urls()
+
         self._url_index = 0
         self._default_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/No_image_available_600_x_450.svg/1280px-No_image_available_600_x_450.svg.png"
         self._max_images = CONF_MAX_NB_IMAGES
         self._default_enabled = default_enabled
+
+    def _pickle_urls(self):
+        """store image urls persistently on hard drive"""
+        with open(self._url_dump_filepath, "wb") as file:
+            pickle.dump(self._urls, file)
 
     def _return_default_img(self):
         img_response = requests.get(url=self._default_url)
@@ -127,6 +146,10 @@ class UrlCam(Camera):
         return CONF_PHOTOS_ENTITY
 
     @property
+    def should_poll(self):
+        return False
+
+    @property
     def device_state_attributes(self):
         """Return the camera state attributes."""
         if len(self._urls) == self._url_index:
@@ -145,6 +168,7 @@ class UrlCam(Camera):
             [*event.data["img_urls"], *self._urls], key=lambda img_url: img_url["date"]
         )
         self._urls = img_urls[-self._max_images :]
+        self._pickle_urls()
         return
 
     @property

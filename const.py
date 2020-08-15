@@ -6,6 +6,8 @@ DOMAIN = "ha_strava"
 AUTH_CALLBACK_PATH = "/auth/external/callback"
 OAUTH2_AUTHORIZE = "https://www.strava.com/oauth/authorize"
 OAUTH2_TOKEN = "https://www.strava.com/oauth/token"
+CONF_15_MIN_RATE_LIMIT = 100
+CONF_DAILY_RATE_LIMIT = 1000
 
 # Camera Config
 CONF_PHOTOS = "conf_photos"

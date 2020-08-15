@@ -28,7 +28,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     Works via image-URLs, not via local file storage
     """
 
-    _LOGGER.debug(f"are photos configured? {config_entry.data.get(CONF_PHOTOS, False)}")
     if not config_entry.data.get(CONF_PHOTOS, False):
         camera = UrlCam(default_enabled=False)
     else:

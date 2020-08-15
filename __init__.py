@@ -25,6 +25,7 @@ from homeassistant.const import (
     EVENT_COMPONENT_LOADED,
     EVENT_CORE_CONFIG_UPDATE,
     EVENT_HOMEASSISTANT_START,
+    EVENT_TIME_CHANGED,
 )
 from homeassistant.helpers import (
     aiohttp_client,
@@ -80,6 +81,7 @@ class StravaWebhookView(HomeAssistantView):
     name = "api:strava:webhook"
     requires_auth = False
     cors_allowed = True
+    activity_ids = []
 
     def __init__(
         self,
@@ -112,9 +114,9 @@ class StravaWebhookView(HomeAssistantView):
         if activities_response.status == 200:
             activities = json.loads(await activities_response.text())
             cities = []
-            activity_ids = []
+            new_activity_ids = []
             for activity in activities:
-                activity_ids.append(activity.get("id"))
+                new_activity_ids.append(activity.get("id"))
                 geo_location_response = await self.oauth_websession.async_request(
                     method="GET",
                     url=f'https://geocode.xyz/{activity.get("start_latitude", 0)},{activity.get("start_longitude", 0)}?geoit=json',
@@ -161,8 +163,11 @@ class StravaWebhookView(HomeAssistantView):
             )
 
             img_urls = []
-            for activity_id in activity_ids:
+            for activity_id in [
+                id for id in new_activity_ids if id not in self.activity_ids
+            ]:
                 img_request_url = f"https://www.strava.com/api/v3/activities/{activity_id}/photos?size={CONFIG_IMG_SIZE}"
+
                 img_response = await self.oauth_websession.async_request(
                     method="GET", url=img_request_url,
                 )
@@ -176,11 +181,22 @@ class StravaWebhookView(HomeAssistantView):
                         )
                         img_url = list(image.get("urls").values())[0]
                         img_urls.append({"date": img_date, "url": img_url})
+
+                elif activities_response.status == 429:
+                    _LOGGER.warn(f"Strava API rate limit has been reached")
+                    return
+
                 else:
                     _LOGGER.error(
                         f"Could not fetch strava image urls from {img_request_url} (response code: {img_response.status}): {await img_response.text()}"
                     )
                     return
+
+            self.activity_ids = new_activity_ids
+
+        elif activities_response.status == 429:
+            _LOGGER.warn(f"Strava API rate limit has been reached")
+            return
 
         else:
             _LOGGER.error(
@@ -189,9 +205,10 @@ class StravaWebhookView(HomeAssistantView):
             return
 
         self.event_factory(data={"activities": activities})
-        self.event_factory(
-            data={"img_urls": img_urls}, event_type=CONF_IMG_UPDATE_EVENT
-        )
+        if len(img_urls) > 0:
+            self.event_factory(
+                data={"img_urls": img_urls}, event_type=CONF_IMG_UPDATE_EVENT
+            )
         return
 
     async def get(self, request):

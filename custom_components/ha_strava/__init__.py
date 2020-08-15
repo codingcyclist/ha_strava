@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <<<<<<< HEAD:custom_components/ha_strava/__init__.py
 """The Strava Home Assistant integration."""
 """Just some changes to see what happens when we merge the filtered branch"""
@@ -5,6 +6,10 @@
 """Strava Home Assistant Custom Component"""
 # generic imports
 >>>>>>> 5ef03e6508b6a56ecee07006469199878eef53a0:__init__.py
+=======
+"""Strava Home Assistant Custom Component"""
+# generic imports
+>>>>>>> 7a8bb904618d709b8428958c7a86332c4c317dd3
 import asyncio
 import logging
 import json

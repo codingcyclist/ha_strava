@@ -1,5 +1,12 @@
 """Sensor platform for HA Strava"""
+# generic imports
+from datetime import datetime as dt
+from aiohttp import ClientSession
+import logging
+
+# HASS imports
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.network import get_url
 from homeassistant.const import (
     LENGTH_MILES,
     LENGTH_KILOMETERS,
@@ -9,14 +16,17 @@ from homeassistant.const import (
     SPEED_MILES_PER_HOUR,
     TIME_MINUTES,
 )
+
+# custom module imports
 from .const import (
     DOMAIN,
-    CONF_STRAVA_UPDATE_EVENT,
+    CONF_STRAVA_DATA_UPDATE_EVENT,
     CONF_STRAVA_RELOAD_EVENT,
     CONF_SENSORS,
     CONF_SENSOR_DATE,
     CONF_SENSOR_DURATION,
     CONF_SENSOR_PACE,
+    CONF_SENSOR_SPEED,
     CONF_SENSOR_DISTANCE,
     CONF_SENSOR_KUDOS,
     CONF_SENSOR_CALORIES,
@@ -33,57 +43,40 @@ from .const import (
     FACTOR_METER_TO_FEET,
     DEFAULT_NB_ACTIVITIES,
     MAX_NB_ACTIVITIES,
+    CONF_SENSOR_DEFAULT,
 )
-from datetime import datetime as dt
-from aiohttp import ClientSession
-from homeassistant.helpers.network import get_url
-import logging
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
+    """
+    create 5+1 sensor entities for 10 devices
+    all sensor entities are hidden by default
+    """
     entries = [
-        StravaSummaryStatsSensor(index, metric)
-        for metric in CONF_SENSORS.keys()
-        for index in range(MAX_NB_ACTIVITIES)
+        StravaSummaryStatsSensor(
+            activity_index=activity_index, sensor_index=sensor_index
+        )
+        for sensor_index in range(6)
+        for activity_index in range(MAX_NB_ACTIVITIES)
     ]
 
     async_add_entities(entries)
 
     # make a post request to the webhook enpoint to initiate a data refresh
-    async with ClientSession() as websession:
-        webhook_url = (
-            f"{get_url(hass, allow_internal=False, allow_ip=False)}/api/strava/webhook"
-        )
-        post_response = await websession.post(url=webhook_url, data={})
-
-        if post_response.status == 200 or post_response.status == 502:
-            # fire event to make sure there is a webhook subscription even after the sensor platform was
-            # reloaded (e.g. when the user changed config options)
-            hass.bus.fire(CONF_STRAVA_RELOAD_EVENT, {"component": DOMAIN})
-            return
-
-        _LOGGER.warning(
-            f"Could reach webhook endpoint at {webhook_url} | Error code: {post_response.status} - {await post_response.text()}"
-        )
-
+    hass.bus.fire(CONF_STRAVA_RELOAD_EVENT, {"component": DOMAIN})
     return
 
 
 class StravaSummaryStatsSensor(Entity):
-    _data = None
-    _icon = None
-    _metric = None
-    _activity_index = None
-    _activity_type = None
+    _data = None  # Strava activity data
+    _activity_index = None  # range: 1-5
 
-    def __init__(self, activityindex, metric):
-        self._metric = metric
-        self._activity_index = int(activityindex)
-
-        self._icon = CONF_SENSORS[metric]["icon"]
-        self.entity_id = f"{DOMAIN}.strava_{self._metric}_{self._activity_index}"
+    def __init__(self, activity_index, sensor_index):
+        self._sensor_index = sensor_index  # range: 0-9
+        self._activity_index = int(activity_index)
+        self.entity_id = f"{DOMAIN}.strava_{self._activity_index}_{self._sensor_index}"
 
     @property
     def device_info(self):
@@ -104,108 +97,171 @@ class StravaSummaryStatsSensor(Entity):
 
     @property
     def unique_id(self):
-        return f"strava_{self._metric}_{self._activity_index}"
+        return f"strava_{self._activity_index}_{self._sensor_index}"
 
     @property
     def icon(self):
-        if self._metric == CONF_SENSOR_DATE and self._activity_type:
-            if self._activity_type == CONF_ACTIVITY_TYPE_RIDE:
-                return "mdi:bike"
-            if self._activity_type == CONF_ACTIVITY_TYPE_RUN:
-                return "mdi:run"
-        return self._icon
+        if not self._data:
+            return "mdi:run"
+
+        ha_strava_config_entries = self.hass.config_entries.async_entries(domain=DOMAIN)
+
+        if len(ha_strava_config_entries) != 1:
+            return "mdi:run"
+
+        _LOGGER.debug(
+            f"Activity Index: {self._activity_index} | Activity Type: {self._data[CONF_SENSOR_ACTIVITY_TYPE]}"
+        )
+        sensor_options = ha_strava_config_entries[0].options.get(
+            self._data[CONF_SENSOR_ACTIVITY_TYPE], CONF_SENSOR_DEFAULT
+        )
+
+        if self._sensor_index == 0:
+            return sensor_options["icon"]
+
+        metric = list(sensor_options.values())[self._sensor_index]
+        return CONF_SENSORS[metric]["icon"]
 
     @property
     def state(self):
         if not self._data:
             return -1
-        return str(self._data["metric"])
+
+        ha_strava_config_entries = self.hass.config_entries.async_entries(domain=DOMAIN)
+
+        if len(ha_strava_config_entries) != 1:
+            return -1
+
+        sensor_metrics = list(
+            ha_strava_config_entries[0]
+            .options.get(self._data[CONF_SENSOR_ACTIVITY_TYPE], CONF_SENSOR_DEFAULT)
+            .values()
+        )
+
+        metric = sensor_metrics[self._sensor_index]
+
+        if self._sensor_index == 0:
+            return f"{self._data[CONF_SENSOR_TITLE]} | {self._data[CONF_SENSOR_CITY]}"
+
+        if metric == CONF_SENSOR_DURATION:
+            days = int(self._data[CONF_SENSOR_MOVING_TIME] // (3600 * 24))
+            hours = int(
+                (self._data[CONF_SENSOR_MOVING_TIME] - days * (3600 * 24)) // 3600
+            )
+            minutes = int(
+                (
+                    self._data[CONF_SENSOR_MOVING_TIME]
+                    - days * (3600 * 24)
+                    - hours * 3600
+                )
+                // 60
+            )
+            seconds = int(
+                self._data[CONF_SENSOR_MOVING_TIME]
+                - days * (3600 * 24)
+                - hours * 3600
+                - minutes * 60
+            )
+            return "".join(
+                [
+                    "" if days == 0 else f"{days} Day(s), ",
+                    "" if hours == 0 and days == 0 else f"{hours:02}:",
+                    "" if minutes == 0 and hours == 0 else f"{minutes:02}:",
+                    f"{seconds:02}",
+                ]
+            )
+
+        if metric == CONF_SENSOR_DISTANCE:
+            distance = (
+                f"{round(self._data[CONF_SENSOR_DISTANCE]/1000,2)} {LENGTH_KILOMETERS}"
+            )
+
+            if not self.hass.config.units.is_metric:
+                distance = f"{round(self._data[CONF_SENSOR_DISTANCE]*FACTOR_METER_TO_MILE,2)} {LENGTH_MILES}"
+
+            return distance
+
+        if metric == CONF_SENSOR_PACE:
+            pace = self._data[CONF_SENSOR_MOVING_TIME] / (
+                self._data[CONF_SENSOR_DISTANCE] / 1000
+            )
+            unit = f"{TIME_MINUTES}/{LENGTH_KILOMETERS}"
+            if not self.hass.config.units.is_metric:
+                pace = (self._data[CONF_SENSOR_MOVING_TIME]) / (
+                    self._data[CONF_SENSOR_DISTANCE] * FACTOR_METER_TO_MILE
+                )
+                unit = f"{TIME_MINUTES}/{LENGTH_MILES}"
+
+            minutes = int(pace // 60)
+            seconds = int(pace - minutes * 60)
+            return "".join(
+                ["" if minutes == 0 else f"{minutes:02}:", f"{seconds:02}", " ", unit]
+            )
+
+        if metric == CONF_SENSOR_SPEED:
+            speed = f"{round((self._data[CONF_SENSOR_DISTANCE]/1000)/(self._data[CONF_SENSOR_MOVING_TIME]/3600),2)} {SPEED_KILOMETERS_PER_HOUR}"
+
+            if not self.hass.config.units.is_metric:
+                speed = f"{round((self._data[CONF_SENSOR_DISTANCE]*FACTOR_METER_TO_MILE)/(self._data[CONF_SENSOR_MOVING_TIME]/3600),2)} {SPEED_MILES_PER_HOUR}"
+            return speed
+
+        if metric == CONF_SENSOR_POWER:
+            return f"{int(round(self._data[CONF_SENSOR_POWER],1))} W"
+
+        if metric == CONF_SENSOR_ELEVATION:
+            elevation = f"{round(self._data[CONF_SENSOR_ELEVATION],0)} {LENGTH_METERS}"
+            if not self.hass.config.units.is_metric:
+                elevation = f"{round(self._data[CONF_SENSOR_ELEVATION]*FACTOR_METER_TO_FEET,0)} {LENGTH_FEET}"
+            return elevation
+
+        return str(self._data[metric])
 
     @property
     def name(self):
-        if self._metric == CONF_SENSOR_DATE:
-            return "Title & Date" if not self._data else self._data[CONF_SENSOR_TITLE]
-        return "" + str.upper(self._metric[0]) + self._metric[1:]
+        if self._sensor_index == 0:
+            return (
+                "Title & Date"
+                if not self._data
+                else f"{dt.strftime(self._data[CONF_SENSOR_DATE], '%d.%m. - %H:%M')}"
+            )
+
+        if not self._data:
+            metric = list(CONF_SENSOR_DEFAULT.values())[self._sensor_index]
+        else:
+            ha_strava_config_entries = self.hass.config_entries.async_entries(
+                domain=DOMAIN
+            )
+
+            if len(ha_strava_config_entries) != 1:
+                return -1
+
+            sensor_metrics = list(
+                ha_strava_config_entries[0]
+                .options.get(self._data[CONF_SENSOR_ACTIVITY_TYPE], CONF_SENSOR_DEFAULT)
+                .values()
+            )
+
+            metric = sensor_metrics[self._sensor_index]
+
+        return "" + str.upper(metric[0]) + metric[1:]
 
     @property
     def should_poll(self):
         return False
 
-    def strava_update_event_handler(self, event):
+    def strava_data_update_event_handler(self, event):
         """Handle Strava API data which is emmitted from a Strava Update Event"""
-        activity = event.data["activities"][self._activity_index]
-
-        self._activity_type = activity[CONF_SENSOR_ACTIVITY_TYPE]
-
-        if self._metric == CONF_SENSOR_DATE:
-            self._data = {
-                "metric": f"{activity[CONF_SENSOR_TITLE]} | {activity[CONF_SENSOR_CITY]}",
-                "title": f"{dt.strftime(activity[self._metric], '%d.%m. - %H:%M')}",
-            }
-        elif self._metric == CONF_SENSOR_DURATION:
-            days = int(activity[CONF_SENSOR_MOVING_TIME] // (3600 * 24))
-            hours = int((activity[CONF_SENSOR_MOVING_TIME] - days * (3600 * 24)) // 3600)
-            minutes = int(
-                (activity[CONF_SENSOR_MOVING_TIME] - days * (3600 * 24) - hours * 3600) // 60
-            )
-            seconds = int(
-                activity[CONF_SENSOR_MOVING_TIME]
-                - days * (3600 * 24)
-                - hours * 3600
-                - minutes * 60
-            )
-            self._data = {
-                "metric": ""
-                + ("" if days == 0 else f"{days} Day(s), ")
-                + ("" if hours == 0 and days == 0 else f"{hours:02}:")
-                + ("" if minutes == 0 and hours == 0 else f"{minutes:02}:")
-                + f"{seconds:02}"
-            }
-
-        elif self._metric == CONF_SENSOR_DISTANCE:
-            distance = f"{round(activity[self._metric]/1000,2)}{LENGTH_KILOMETERS}"
-
-            if not self.hass.config.units.is_metric:
-                distance = f"{round(activity[self._metric]*FACTOR_METER_TO_MILE,2)}{LENGTH_MILES}"
-
-            self._data = {"metric": distance}
-
-        elif self._metric == CONF_SENSOR_PACE:
-            pace = f"{round((activity[CONF_SENSOR_DISTANCE]/1000)/(activity[CONF_SENSOR_MOVING_TIME]/3600),2)}{SPEED_KILOMETERS_PER_HOUR}"
-
-            if not self.hass.config.units.is_metric:
-                pace = f"{round((activity[CONF_SENSOR_DISTANCE]*FACTOR_METER_TO_MILE)/(activity[CONF_SENSOR_MOVING_TIME]/3600),2)}{SPEED_MILES_PER_HOUR}"
-
-            if activity[CONF_SENSOR_ACTIVITY_TYPE] == CONF_ACTIVITY_TYPE_RUN:
-                pace = f"{round((activity[CONF_SENSOR_MOVING_TIME]/60)/(activity[CONF_SENSOR_DISTANCE]/1000),2)}{TIME_MINUTES}/{LENGTH_KILOMETERS}"
-
-                if not self.hass.config.units.is_metric:
-                    pace = f"{round((activity[CONF_SENSOR_MOVING_TIME]/60)/(activity[CONF_SENSOR_DISTANCE]*FACTOR_METER_TO_MILE),2)}{TIME_MINUTES}/{LENGTH_MILES}"
-
-            self._data = {"metric": pace}
-
-        elif self._metric == CONF_SENSOR_POWER:
-            self._data = {"metric": f"{int(round(activity[CONF_SENSOR_POWER],0))}W"}
-
-        elif self._metric == CONF_SENSOR_ELEVATION:
-            elevation = f"{round(activity[CONF_SENSOR_ELEVATION],0)}{LENGTH_METERS}"
-            if not self.hass.config.units.is_metric:
-                elevation = f"{round(activity[CONF_SENSOR_ELEVATION]*FACTOR_METER_TO_FEET,0)}{LENGTH_FEET}"
-            self._data = {"metric": elevation}
-
-        else:
-            self._data = {"metric": activity[self._metric]}
-
+        self._data = event.data["activities"][self._activity_index]
         self.async_write_ha_state()
 
     async def async_added_to_hass(self):
         self.hass.bus.async_listen(
-            CONF_STRAVA_UPDATE_EVENT, self.strava_update_event_handler
+            CONF_STRAVA_DATA_UPDATE_EVENT, self.strava_data_update_event_handler
         )
 
     async def async_will_remove_from_hass(self):
         self.hass.bus._async_remove_listener(
-            event_type=CONF_STRAVA_UPDATE_EVENT,
-            listener=self.strava_update_event_handler,
+            event_type=CONF_STRAVA_DATA_UPDATE_EVENT,
+            listener=self.strava_data_update_event_handler,
         )
 

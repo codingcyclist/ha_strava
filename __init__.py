@@ -143,7 +143,7 @@ class StravaWebhookView(HomeAssistantView):
                     {
                         CONF_SENSOR_TITLE: activity.get("name", "Strava Activity"),
                         CONF_SENSOR_CITY: cities[idx],
-                        CONF_SENSOR_ACTIVITY_TYPE: activity.get("type", "Ride"),
+                        CONF_SENSOR_ACTIVITY_TYPE: activity.get("type", "Ride").lower(),
                         CONF_SENSOR_DISTANCE: float(activity.get("distance", -1)),
                         CONF_SENSOR_DATE: dt.strptime(
                             activity.get("start_date_local", "2000-01-01T00:00:00Z"),

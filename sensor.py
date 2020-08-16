@@ -187,8 +187,9 @@ class StravaSummaryStatsSensor(Entity):
             + str.upper(self._activity_type[0])
             + self._activity_type[1:]
             + " "
-            + str.upper(self._metric[0])
-            + self._metric[1:]
+            + str.join(
+                " ", ["" + str.upper(s[0]) + s[1:] for s in self._metric.split("_")]
+            )
         )
 
     @property
@@ -261,6 +262,8 @@ class StravaStatsSensor(Entity):
         sensor_options = ha_strava_config_entries[0].options.get(
             self._data[CONF_SENSOR_ACTIVITY_TYPE], CONF_SENSOR_DEFAULT
         )
+
+        _LOGGER.debug(f"Sensor Config: {sensor_options}")
 
         if self._sensor_index == 0:
             return sensor_options["icon"]

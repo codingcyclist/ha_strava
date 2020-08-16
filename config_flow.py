@@ -278,6 +278,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         ] = self._img_update_interval_seconds
         ha_strava_options[CONF_PHOTOS] = self._import_strava_images
 
+        _LOGGER.debug("Strava Config Options: {ha_strava_options}")
         return self.async_create_entry(
             title=self._config_entry_title, data=ha_strava_options,
         )

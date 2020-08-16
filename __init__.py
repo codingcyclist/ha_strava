@@ -46,6 +46,7 @@ from .const import (
     CONF_CALLBACK_URL,
     AUTH_CALLBACK_PATH,
     CONF_SENSOR_DATE,
+    CONF_SENSOR_ACTIVITY_COUNT,
     CONF_SENSOR_DURATION,
     CONF_SENSOR_PACE,
     CONF_SENSOR_DISTANCE,
@@ -58,24 +59,11 @@ from .const import (
     CONF_SENSOR_CITY,
     CONF_SENSOR_MOVING_TIME,
     CONF_SENSOR_ACTIVITY_TYPE,
-    CONF_SUMMARY_YTD_RUN_DIST,
-    CONF_SUMMARY_YTD_BIKE_DIST,
-    CONF_SUMMARY_YTD_SWIM_DIST,
-    CONF_SUMMARY_RUN_DIST,
-    CONF_SUMMARY_BIKE_DIST,
-    CONF_SUMMARY_SWIM_DIST,
-    CONF_SUMMARY_YTD_RUN_COUNT,
-    CONF_SUMMARY_YTD_BIKE_COUNT,
-    CONF_SUMMARY_YTD_SWIM_COUNT,
-    CONF_SUMMARY_RUN_COUNT,
-    CONF_SUMMARY_BIKE_COUNT,
-    CONF_SUMMARY_SWIM_COUNT,
-    CONF_SUMMARY_YTD_RUN_MOVING_TIME,
-    CONF_SUMMARY_YTD_BIKE_MOVING_TIME,
-    CONF_SUMMARY_YTD_SWIM_MOVING_TIME,
-    CONF_SUMMARY_RUN_MOVING_TIME,
-    CONF_SUMMARY_BIKE_MOVING_TIME,
-    CONF_SUMMARY_SWIM_MOVING_TIME,
+    CONF_ACTIVITY_TYPE_RUN,
+    CONF_ACTIVITY_TYPE_RIDE,
+    CONF_ACTIVITY_TYPE_SWIM,
+    CONF_SUMMARY_YTD,
+    CONF_SUMMARY_ALL,
     CONF_STRAVA_DATA_UPDATE_EVENT,
     CONF_STRAVA_CONFIG_UPDATE_EVENT,
     CONF_STRAVA_RELOAD_EVENT,
@@ -128,6 +116,8 @@ class StravaWebhookView(HomeAssistantView):
             method="GET",
             url=f"https://www.strava.com/api/v3/athlete/activities?per_page={MAX_NB_ACTIVITIES}",
         )
+
+        summary_stats_obj = None
 
         if activities_response.status == 200:
             activities = json.loads(await activities_response.text())
@@ -234,95 +224,116 @@ class StravaWebhookView(HomeAssistantView):
                 )
 
                 sumary_stats = json.loads(await summary_stats_response.text())
-                sumaary_stats_obj = {
-                    CONF_SUMMARY_YTD_RUN_DIST: float(
-                        sumary_stats.get("ytd_run_totals", {"distance": 0}).get(
-                            "distance", 0
-                        )
-                    ),
-                    CONF_SUMMARY_YTD_BIKE_DIST: float(
-                        sumary_stats.get("ytd_ride_totals", {"distance": 0}).get(
-                            "distance", 0
-                        )
-                    ),
-                    CONF_SUMMARY_YTD_SWIM_DIST: float(
-                        sumary_stats.get("ytd_swim_totals", {"distance": 0}).get(
-                            "distance", 0
-                        )
-                    ),
-                    CONF_SUMMARY_RUN_DIST: float(
-                        sumary_stats.get("all_run_totals", {"distance": 0}).get(
-                            "distance", 0
-                        )
-                    ),
-                    CONF_SUMMARY_BIKE_DIST: float(
-                        sumary_stats.get("all_ride_totals", {"distance": 0}).get(
-                            "distance", 0
-                        )
-                    ),
-                    CONF_SUMMARY_SWIM_DIST: float(
-                        sumary_stats.get("all_swim_totals", {"distance": 0}).get(
-                            "distance", 0
-                        )
-                    ),
-                    CONF_SUMMARY_YTD_RUN_COUNT: int(
-                        sumary_stats.get("ytd_run_totals", {"count": 0}).get("count", 0)
-                    ),
-                    CONF_SUMMARY_YTD_BIKE_COUNT: int(
-                        sumary_stats.get("ytd_ride_totals", {"count": 0}).get(
-                            "count", 0
-                        )
-                    ),
-                    CONF_SUMMARY_YTD_SWIM_COUNT: int(
-                        sumary_stats.get("ytd_swim_totals", {"count": 0}).get(
-                            "count", 0
-                        )
-                    ),
-                    CONF_SUMMARY_RUN_COUNT: int(
-                        sumary_stats.get("all_run_totals", {"count": 0}).get("count", 0)
-                    ),
-                    CONF_SUMMARY_BIKE_COUNT: int(
-                        sumary_stats.get("all_ride_totals", {"count": 0}).get(
-                            "count", 0
-                        )
-                    ),
-                    CONF_SUMMARY_SWIM_COUNT: int(
-                        sumary_stats.get("all_swim_totals", {"count": 0}).get(
-                            "count", 0
-                        )
-                    ),
-                    CONF_SUMMARY_YTD_RUN_MOVING_TIME: float(
-                        sumary_stats.get("ytd_run_totals", {"moving_time": 0}).get(
-                            "moving_time", 0
-                        )
-                    ),
-                    CONF_SUMMARY_YTD_BIKE_MOVING_TIME: float(
-                        sumary_stats.get("ytd_ride_totals", {"moving_time": 0}).get(
-                            "moving_time", 0
-                        )
-                    ),
-                    CONF_SUMMARY_YTD_SWIM_MOVING_TIME: float(
-                        sumary_stats.get("ytd_swim_totals", {"moving_time": 0}).get(
-                            "moving_time", 0
-                        )
-                    ),
-                    CONF_SUMMARY_RUN_MOVING_TIME: float(
-                        sumary_stats.get("all_run_totals", {"moving_time": 0}).get(
-                            "moving_time", 0
-                        )
-                    ),
-                    CONF_SUMMARY_BIKE_MOVING_TIME: float(
-                        sumary_stats.get("all_ride_totals", {"moving_time": 0}).get(
-                            "moving_time", 0
-                        )
-                    ),
-                    CONF_SUMMARY_SWIM_MOVING_TIME: float(
-                        sumary_stats.get("all_swim_totals", {"moving_time": 0}).get(
-                            "moving_time", 0
-                        )
-                    ),
+                summary_stats_obj = {
+                    CONF_ACTIVITY_TYPE_RIDE: {
+                        CONF_SUMMARY_YTD: {
+                            CONF_SENSOR_DISTANCE: float(
+                                sumary_stats.get(
+                                    "ytd_ride_totals", {"distance": 0}
+                                ).get("distance", 0)
+                            ),
+                            CONF_SENSOR_ACTIVITY_COUNT: int(
+                                sumary_stats.get("ytd_ride_totals", {"count": 0}).get(
+                                    "count", 0
+                                )
+                            ),
+                            CONF_SENSOR_MOVING_TIME: float(
+                                sumary_stats.get(
+                                    "ytd_ride_totals", {"moving_time": 0}
+                                ).get("moving_time", 0)
+                            ),
+                        },
+                        CONF_SUMMARY_ALL: {
+                            CONF_SENSOR_DISTANCE: float(
+                                sumary_stats.get(
+                                    "all_ride_totals", {"distance": 0}
+                                ).get("distance", 0)
+                            ),
+                            CONF_SENSOR_ACTIVITY_COUNT: int(
+                                sumary_stats.get("all_ride_totals", {"count": 0}).get(
+                                    "count", 0
+                                )
+                            ),
+                            CONF_SENSOR_MOVING_TIME: float(
+                                sumary_stats.get(
+                                    "all_ride_totals", {"moving_time": 0}
+                                ).get("moving_time", 0)
+                            ),
+                        },
+                    },
+                    CONF_ACTIVITY_TYPE_RUN: {
+                        CONF_SUMMARY_YTD: {
+                            CONF_SENSOR_DISTANCE: float(
+                                sumary_stats.get("ytd_run_totals", {"distance": 0}).get(
+                                    "distance", 0
+                                )
+                            ),
+                            CONF_SENSOR_ACTIVITY_COUNT: int(
+                                sumary_stats.get("ytd_run_totals", {"count": 0}).get(
+                                    "count", 0
+                                )
+                            ),
+                            CONF_SENSOR_MOVING_TIME: float(
+                                sumary_stats.get(
+                                    "ytd_run_totals", {"moving_time": 0}
+                                ).get("moving_time", 0)
+                            ),
+                        },
+                        CONF_SUMMARY_ALL: {
+                            CONF_SENSOR_DISTANCE: float(
+                                sumary_stats.get("all_run_totals", {"distance": 0}).get(
+                                    "distance", 0
+                                )
+                            ),
+                            CONF_SENSOR_ACTIVITY_COUNT: int(
+                                sumary_stats.get("all_run_totals", {"count": 0}).get(
+                                    "count", 0
+                                )
+                            ),
+                            CONF_SENSOR_MOVING_TIME: float(
+                                sumary_stats.get(
+                                    "all_run_totals", {"moving_time": 0}
+                                ).get("moving_time", 0)
+                            ),
+                        },
+                    },
+                    CONF_ACTIVITY_TYPE_SWIM: {
+                        CONF_SUMMARY_YTD: {
+                            CONF_SENSOR_DISTANCE: float(
+                                sumary_stats.get(
+                                    "ytd_swim_totals", {"distance": 0}
+                                ).get("distance", 0)
+                            ),
+                            CONF_SENSOR_ACTIVITY_COUNT: int(
+                                sumary_stats.get("ytd_swim_totals", {"count": 0}).get(
+                                    "count", 0
+                                )
+                            ),
+                            CONF_SENSOR_MOVING_TIME: float(
+                                sumary_stats.get(
+                                    "ytd_swim_totals", {"moving_time": 0}
+                                ).get("moving_time", 0)
+                            ),
+                        },
+                        CONF_SUMMARY_ALL: {
+                            CONF_SENSOR_DISTANCE: float(
+                                sumary_stats.get(
+                                    "all_swim_totals", {"distance": 0}
+                                ).get("distance", 0)
+                            ),
+                            CONF_SENSOR_ACTIVITY_COUNT: int(
+                                sumary_stats.get("all_swim_totals", {"count": 0}).get(
+                                    "count", 0
+                                )
+                            ),
+                            CONF_SENSOR_MOVING_TIME: float(
+                                sumary_stats.get(
+                                    "all_swim_totals", {"moving_time": 0}
+                                ).get("moving_time", 0)
+                            ),
+                        },
+                    },
                 }
-                _LOGGER.debug(f"new summary stats: {sumaary_stats_obj}")
 
         elif activities_response.status == 429:
             _LOGGER.warn(f"Strava API rate limit has been reached")
@@ -334,7 +345,12 @@ class StravaWebhookView(HomeAssistantView):
             )
             return
 
-        self.event_factory(data={"activities": activities})
+        self.event_factory(
+            data={
+                "activities": activities,
+                "summary_stats": None if not summary_stats_obj else summary_stats_obj,
+            }
+        )
         if len(img_urls) > 0:
             self.event_factory(
                 data={"img_urls": img_urls}, event_type=CONF_IMG_UPDATE_EVENT

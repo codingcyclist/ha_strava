@@ -25,6 +25,7 @@ from homeassistant.const import (
     EVENT_COMPONENT_LOADED,
     EVENT_CORE_CONFIG_UPDATE,
     EVENT_HOMEASSISTANT_START,
+    EVENT_TIME_CHANGED,
 )
 from homeassistant.helpers import (
     aiohttp_client,
@@ -38,10 +39,14 @@ from .const import (
     DOMAIN,
     OAUTH2_AUTHORIZE,
     OAUTH2_TOKEN,
+    CONFIG_IMG_SIZE,
+    CONF_IMG_UPDATE_EVENT,
+    CONF_IMG_ROTATE_EVENT,
     WEBHOOK_SUBSCRIPTION_URL,
     CONF_CALLBACK_URL,
     AUTH_CALLBACK_PATH,
     CONF_SENSOR_DATE,
+    CONF_SENSOR_ACTIVITY_COUNT,
     CONF_SENSOR_DURATION,
     CONF_SENSOR_PACE,
     CONF_SENSOR_DISTANCE,
@@ -54,6 +59,11 @@ from .const import (
     CONF_SENSOR_CITY,
     CONF_SENSOR_MOVING_TIME,
     CONF_SENSOR_ACTIVITY_TYPE,
+    CONF_ACTIVITY_TYPE_RUN,
+    CONF_ACTIVITY_TYPE_RIDE,
+    CONF_ACTIVITY_TYPE_SWIM,
+    CONF_SUMMARY_YTD,
+    CONF_SUMMARY_ALL,
     CONF_STRAVA_DATA_UPDATE_EVENT,
     CONF_STRAVA_CONFIG_UPDATE_EVENT,
     CONF_STRAVA_RELOAD_EVENT,
@@ -63,7 +73,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["sensor"]
+PLATFORMS = ["sensor", "camera"]
 
 
 class StravaWebhookView(HomeAssistantView):
@@ -77,6 +87,7 @@ class StravaWebhookView(HomeAssistantView):
     name = "api:strava:webhook"
     requires_auth = False
     cors_allowed = True
+    image_updates = {}
 
     def __init__(
         self,
@@ -106,10 +117,16 @@ class StravaWebhookView(HomeAssistantView):
             url=f"https://www.strava.com/api/v3/athlete/activities?per_page={MAX_NB_ACTIVITIES}",
         )
 
+        summary_stats_obj = None
+
         if activities_response.status == 200:
             activities = json.loads(await activities_response.text())
             cities = []
+            new_activity_ids = []
+            athlete_id = None
             for activity in activities:
+                new_activity_ids.append(activity.get("id"))
+                athlete_id = int(activity["athlete"]["id"])
                 geo_location_response = await self.oauth_websession.async_request(
                     method="GET",
                     url=f'https://geocode.xyz/{activity.get("start_latitude", 0)},{activity.get("start_longitude", 0)}?geoit=json',
@@ -126,7 +143,7 @@ class StravaWebhookView(HomeAssistantView):
                     {
                         CONF_SENSOR_TITLE: activity.get("name", "Strava Activity"),
                         CONF_SENSOR_CITY: cities[idx],
-                        CONF_SENSOR_ACTIVITY_TYPE: activity.get("type", "Ride"),
+                        CONF_SENSOR_ACTIVITY_TYPE: activity.get("type", "Ride").lower(),
                         CONF_SENSOR_DISTANCE: float(activity.get("distance", -1)),
                         CONF_SENSOR_DATE: dt.strptime(
                             activity.get("start_date_local", "2000-01-01T00:00:00Z"),
@@ -155,17 +172,196 @@ class StravaWebhookView(HomeAssistantView):
                 reverse=True,
             )
 
+            newly_added_activity_ids = [
+                id for id in new_activity_ids if id not in self.image_updates.keys()
+            ]
+            img_urls = []
+            self.image_updates = {
+                id: self.image_updates.get(id, dt(1990, 1, 1))
+                for id in new_activity_ids
+            }
+            # only update images once a day per activity
+            for activity_id in [
+                id
+                for id in self.image_updates.keys()
+                if (dt.now() - self.image_updates[id]).days > 0
+            ]:
+                img_request_url = f"https://www.strava.com/api/v3/activities/{activity_id}/photos?size={CONFIG_IMG_SIZE}"
+
+                img_response = await self.oauth_websession.async_request(
+                    method="GET", url=img_request_url,
+                )
+
+                if img_response.status == 200:
+                    images = json.loads(await img_response.text())
+                    for image in images:
+                        img_date = dt.strptime(
+                            image.get("created_at_local", "2000-01-01T00:00:00Z"),
+                            "%Y-%m-%dT%H:%M:%SZ",
+                        )
+                        img_url = list(image.get("urls").values())[0]
+                        img_urls.append({"date": img_date, "url": img_url})
+                    self.image_updates[activity_id] = dt.now()
+
+                elif activities_response.status == 429:
+                    _LOGGER.warn(f"Strava API rate limit has been reached")
+                    return
+
+                else:
+                    _LOGGER.error(
+                        f"Could not fetch strava image urls from {img_request_url} (response code: {img_response.status}): {await img_response.text()}"
+                    )
+                    return
+
+            if len(newly_added_activity_ids) > 0:
+                # fetch summary stats
+                summary_stats_url = (
+                    f"https://www.strava.com/api/v3/athletes/{athlete_id}/stats"
+                )
+
+                summary_stats_response = await self.oauth_websession.async_request(
+                    method="GET", url=summary_stats_url,
+                )
+
+                sumary_stats = json.loads(await summary_stats_response.text())
+                summary_stats_obj = {
+                    CONF_ACTIVITY_TYPE_RIDE: {
+                        CONF_SUMMARY_YTD: {
+                            CONF_SENSOR_DISTANCE: float(
+                                sumary_stats.get(
+                                    "ytd_ride_totals", {"distance": 0}
+                                ).get("distance", 0)
+                            ),
+                            CONF_SENSOR_ACTIVITY_COUNT: int(
+                                sumary_stats.get("ytd_ride_totals", {"count": 0}).get(
+                                    "count", 0
+                                )
+                            ),
+                            CONF_SENSOR_MOVING_TIME: float(
+                                sumary_stats.get(
+                                    "ytd_ride_totals", {"moving_time": 0}
+                                ).get("moving_time", 0)
+                            ),
+                        },
+                        CONF_SUMMARY_ALL: {
+                            CONF_SENSOR_DISTANCE: float(
+                                sumary_stats.get(
+                                    "all_ride_totals", {"distance": 0}
+                                ).get("distance", 0)
+                            ),
+                            CONF_SENSOR_ACTIVITY_COUNT: int(
+                                sumary_stats.get("all_ride_totals", {"count": 0}).get(
+                                    "count", 0
+                                )
+                            ),
+                            CONF_SENSOR_MOVING_TIME: float(
+                                sumary_stats.get(
+                                    "all_ride_totals", {"moving_time": 0}
+                                ).get("moving_time", 0)
+                            ),
+                        },
+                    },
+                    CONF_ACTIVITY_TYPE_RUN: {
+                        CONF_SUMMARY_YTD: {
+                            CONF_SENSOR_DISTANCE: float(
+                                sumary_stats.get("ytd_run_totals", {"distance": 0}).get(
+                                    "distance", 0
+                                )
+                            ),
+                            CONF_SENSOR_ACTIVITY_COUNT: int(
+                                sumary_stats.get("ytd_run_totals", {"count": 0}).get(
+                                    "count", 0
+                                )
+                            ),
+                            CONF_SENSOR_MOVING_TIME: float(
+                                sumary_stats.get(
+                                    "ytd_run_totals", {"moving_time": 0}
+                                ).get("moving_time", 0)
+                            ),
+                        },
+                        CONF_SUMMARY_ALL: {
+                            CONF_SENSOR_DISTANCE: float(
+                                sumary_stats.get("all_run_totals", {"distance": 0}).get(
+                                    "distance", 0
+                                )
+                            ),
+                            CONF_SENSOR_ACTIVITY_COUNT: int(
+                                sumary_stats.get("all_run_totals", {"count": 0}).get(
+                                    "count", 0
+                                )
+                            ),
+                            CONF_SENSOR_MOVING_TIME: float(
+                                sumary_stats.get(
+                                    "all_run_totals", {"moving_time": 0}
+                                ).get("moving_time", 0)
+                            ),
+                        },
+                    },
+                    CONF_ACTIVITY_TYPE_SWIM: {
+                        CONF_SUMMARY_YTD: {
+                            CONF_SENSOR_DISTANCE: float(
+                                sumary_stats.get(
+                                    "ytd_swim_totals", {"distance": 0}
+                                ).get("distance", 0)
+                            ),
+                            CONF_SENSOR_ACTIVITY_COUNT: int(
+                                sumary_stats.get("ytd_swim_totals", {"count": 0}).get(
+                                    "count", 0
+                                )
+                            ),
+                            CONF_SENSOR_MOVING_TIME: float(
+                                sumary_stats.get(
+                                    "ytd_swim_totals", {"moving_time": 0}
+                                ).get("moving_time", 0)
+                            ),
+                        },
+                        CONF_SUMMARY_ALL: {
+                            CONF_SENSOR_DISTANCE: float(
+                                sumary_stats.get(
+                                    "all_swim_totals", {"distance": 0}
+                                ).get("distance", 0)
+                            ),
+                            CONF_SENSOR_ACTIVITY_COUNT: int(
+                                sumary_stats.get("all_swim_totals", {"count": 0}).get(
+                                    "count", 0
+                                )
+                            ),
+                            CONF_SENSOR_MOVING_TIME: float(
+                                sumary_stats.get(
+                                    "all_swim_totals", {"moving_time": 0}
+                                ).get("moving_time", 0)
+                            ),
+                        },
+                    },
+                }
+
+        elif activities_response.status == 429:
+            _LOGGER.warn(f"Strava API rate limit has been reached")
+            return
+
         else:
             _LOGGER.error(
                 f"Could not fetch strava activities (response code: {activities_response.status}): {await activities_response.text()}"
             )
             return
 
-        self.event_factory({"activities": activities})
+        self.event_factory(
+            data={
+                "activities": activities,
+                "summary_stats": None if not summary_stats_obj else summary_stats_obj,
+            }
+        )
+        if len(img_urls) > 0:
+            self.event_factory(
+                data={"img_urls": img_urls}, event_type=CONF_IMG_UPDATE_EVENT
+            )
         return
 
     async def get(self, request):
         """Handle the incoming webhook challenge"""
+        _LOGGER.debug(
+            f"Strava Endpoint got a GET request from {request.headers.get('Host', None)}"
+        )
         webhook_subscription_challenge = request.query.get("hub.challenge", None)
         if webhook_subscription_challenge:
             return json_response(
@@ -177,16 +373,15 @@ class StravaWebhookView(HomeAssistantView):
     async def post(self, request: Request):
         """Handle incoming post request"""
         request_host = request.headers.get("Host", None)
+        _LOGGER.debug(
+            f"Strava Webhook Endppoint received a POST request from: {request_host}"
+        )
 
         try:
             data = await request.json()
             webhook_id = int(data.get("subscription_id", -1))
         except JSONDecodeError:
             webhook_id = -1
-
-        _LOGGER.debug(
-            f"Strava Webhook Endppoint received a POST request from: {request_host}"
-        )
 
         if webhook_id == self.webhook_id or request_host in self.host:
             # create asychronous task to meet the 2 sec response time
@@ -239,6 +434,12 @@ async def renew_webhook_subscription(
         await existing_webhook_subscriptions_response.text()
     )
 
+    if len(existing_webhook_subscriptions) > 1:
+        _LOGGER.error(
+            f"Expected 1 existing Strava Webhook subscription for {config_data[CONF_CALLBACK_URL]}: Found {len(existing_webhook_subscriptions)}"
+        )
+        return
+
     if len(existing_webhook_subscriptions) == 1:
 
         config_data[CONF_WEBHOOK_ID] = existing_webhook_subscriptions[0]["id"]
@@ -270,7 +471,7 @@ async def renew_webhook_subscription(
                 )
                 return
 
-    elif len(existing_webhook_subscriptions) == 0:
+    if len(existing_webhook_subscriptions) == 0:
         _LOGGER.debug(
             f"Creating a new Strava Webhook subscription for {config_data[CONF_CALLBACK_URL]}"
         )
@@ -291,12 +492,6 @@ async def renew_webhook_subscription(
                 f"Unexpected response (status code: {post_response.status}) while creating Strava Webhook Subscription: {await post_response.text()}"
             )
             return
-
-    else:
-        _LOGGER.error(
-            f"Expected 1 existing Strava Webhook subscription for {config_data[CONF_CALLBACK_URL]}: Found {len(existing_webhook_subscriptions)}"
-        )
-        return
 
     hass.config_entries.async_update_entry(entry=entry, data=config_data)
 
@@ -348,8 +543,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await oauth_websession.async_ensure_token_valid()
 
     # webhook view to get notifications for strava activity updates
-    def strava_update_event_factory(data):
-        hass.bus.fire(CONF_STRAVA_DATA_UPDATE_EVENT, data)
+    def strava_update_event_factory(data, event_type=CONF_STRAVA_DATA_UPDATE_EVENT):
+        hass.bus.fire(event_type, data)
 
     strava_webhook_view = StravaWebhookView(
         oauth_websession=oauth_websession,

@@ -15,7 +15,8 @@
         "description": "You can find more information on how to obtain your Strava API Credentials here: https://www.strava.com/settings/api",
         "data": {
           "client_id": "Client ID",
-          "client_secret": "Client Secret"
+          "client_secret": "Client Secret",
+          "conf_photos": "Import Photos from Strava?"
         }
       }
     }
@@ -25,7 +26,9 @@
       "init": {
         "title": "Strava Home Assistant Configuration",
         "data": {
-          "nb_activities": "Number of concurrent Strava Activities"
+          "nb_activities": "Number of concurrent Strava Activities",
+          "img_update_interval_seconds": "Image rotation (seconds)",
+          "conf_photos": "Import Photos from Strava?"
         }
       },
       "sensor_options": {

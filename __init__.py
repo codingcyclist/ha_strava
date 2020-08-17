@@ -359,6 +359,9 @@ class StravaWebhookView(HomeAssistantView):
 
     async def get(self, request):
         """Handle the incoming webhook challenge"""
+        _LOGGER.debug(
+            f"Strava Endpoint got a GET request from {request.headers.get('Host', None)}"
+        )
         webhook_subscription_challenge = request.query.get("hub.challenge", None)
         if webhook_subscription_challenge:
             return json_response(
@@ -370,16 +373,15 @@ class StravaWebhookView(HomeAssistantView):
     async def post(self, request: Request):
         """Handle incoming post request"""
         request_host = request.headers.get("Host", None)
+        _LOGGER.debug(
+            f"Strava Webhook Endppoint received a POST request from: {request_host}"
+        )
 
         try:
             data = await request.json()
             webhook_id = int(data.get("subscription_id", -1))
         except JSONDecodeError:
             webhook_id = -1
-
-        _LOGGER.debug(
-            f"Strava Webhook Endppoint received a POST request from: {request_host}"
-        )
 
         if webhook_id == self.webhook_id or request_host in self.host:
             # create asychronous task to meet the 2 sec response time
@@ -432,6 +434,12 @@ async def renew_webhook_subscription(
         await existing_webhook_subscriptions_response.text()
     )
 
+    if len(existing_webhook_subscriptions) > 1:
+        _LOGGER.error(
+            f"Expected 1 existing Strava Webhook subscription for {config_data[CONF_CALLBACK_URL]}: Found {len(existing_webhook_subscriptions)}"
+        )
+        return
+
     if len(existing_webhook_subscriptions) == 1:
 
         config_data[CONF_WEBHOOK_ID] = existing_webhook_subscriptions[0]["id"]
@@ -463,7 +471,7 @@ async def renew_webhook_subscription(
                 )
                 return
 
-    elif len(existing_webhook_subscriptions) == 0:
+    if len(existing_webhook_subscriptions) == 0:
         _LOGGER.debug(
             f"Creating a new Strava Webhook subscription for {config_data[CONF_CALLBACK_URL]}"
         )
@@ -484,12 +492,6 @@ async def renew_webhook_subscription(
                 f"Unexpected response (status code: {post_response.status}) while creating Strava Webhook Subscription: {await post_response.text()}"
             )
             return
-
-    else:
-        _LOGGER.error(
-            f"Expected 1 existing Strava Webhook subscription for {config_data[CONF_CALLBACK_URL]}: Found {len(existing_webhook_subscriptions)}"
-        )
-        return
 
     hass.config_entries.async_update_entry(entry=entry, data=config_data)
 

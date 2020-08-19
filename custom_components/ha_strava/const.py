@@ -6,6 +6,17 @@ DOMAIN = "ha_strava"
 AUTH_CALLBACK_PATH = "/auth/external/callback"
 OAUTH2_AUTHORIZE = "https://www.strava.com/oauth/authorize"
 OAUTH2_TOKEN = "https://www.strava.com/oauth/token"
+CONF_15_MIN_RATE_LIMIT = 100
+CONF_DAILY_RATE_LIMIT = 1000
+
+# Camera Config
+CONF_PHOTOS = "conf_photos"
+CONF_PHOTOS_ENTITY = "strava_cam"
+CONFIG_IMG_SIZE = 512
+CONFIG_URL_DUMP_FILENAME = "strava_img_urls.pickle"
+CONF_IMG_UPDATE_INTERVAL_SECONDS = "img_update_interval_seconds"
+CONF_IMG_UPDATE_INTERVAL_SECONDS_DEFAULT = 5
+CONF_MAX_NB_IMAGES = 100
 
 # Webhook & API Specs
 CONF_WEBHOOK_ID = "webhook_id"
@@ -19,6 +30,9 @@ MAX_NB_ACTIVITIES = 10
 CONF_STRAVA_DATA_UPDATE_EVENT = "strava_data_update"
 CONF_STRAVA_CONFIG_UPDATE_EVENT = "strava_config_update"
 CONF_STRAVA_RELOAD_EVENT = "ha_strava_reload"
+CONF_IMG_UPDATE_EVENT = "ha_strava_new_images"
+CONF_IMG_ROTATE_EVENT = "ha_strava_rotate_images"
+
 
 # Sensor Specs
 CONF_SENSOR_DATE = "date"

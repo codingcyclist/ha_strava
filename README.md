@@ -3,17 +3,14 @@ Custom Component to integrate Activity Data from Strava into Home Assistant.
 
 
 ## Features
-* Gives you access to statistics for **up to 10 of your most recent activities** in Strava.
-* Pulls Year-to-Date (YTD) and All-Time **summary statistics for Run, Ride, and Swimm activities**
-* Exposes **5 customizeable sensor entities** for each Strava activity + 18 additional entities for summary statistics
-* Creates a **camera entity** in Home Assistant to **feature recent Strava pictures** as a photo-carousel
+* Gives you access to **up to 10 of your most recent activities** in Strava. 
 * Supports both the **metric and the imperial** unit system
 * Activity data in Home Assistant **auto-updates** whenever you add, modify, or delete activities on Strava
+* Exposes **5 customizeable sensor entities** for each Strava activity
 * **Easy set-up**: only enter your Strava Client-ID and -secret and you're ready to go
 
 ![](sensor_overview.png)
 
-### Activity Stats (for up to 10 Strava Activities)
 For every Strava activity, the Strava Home Assistant Integration creates a **device entity** in Home Assistant (max 10 activities). Each of these virtual device entities exposes **five sensor entities** which you can customize to display one of the following **activity KPIs**:
 * Duration (Minutes),
 * Pace (Minutes/Mile ; Minutes/Km)
@@ -28,17 +25,6 @@ For every Strava activity, the Strava Home Assistant Integration creates a **dev
 **One additional sensor entity** will be available for every Strava activity to display Date & Title of the underlying activity. To map a name to an activities's GPS start location, Strava Home Assistant relies on the free API at [geocode.xyz](https://geocode.xyz). In the event that Strava Home Assistant cannot fetch a location name from geocode.xyz, it'll put "Paradise City" as the default location.
 
 Since every Strava activity gets its own virtual device, you can use the underlying sensor data in your **Dashboards and Automations**, just as you'd use any other sensor data in Home Assistant. To learn how to display information about your most recent Strava Activities, please reference the **UI-configuration example** below.
-
-### Summary Statistics (for up to 10 Strava Activities)
-The Strava Home Assistant Integration creates a **device entity** for both **Year-to-Date and All-Time** summary statistics. Each of these virtual device entities exposes **nine sensor entities**:
-* Moving Time
-* Distance
-* Activity Count
-...for **Ride, Run, and Swim** activities
-
-### Photo Carousel (for up to 100 Strava Photos)
-The Strava Home Assistant Integration creates a single **camera entity** to display a photo carousel based on **pictures from your Strava activities**. Up to 100 unique image URLs are buffered locally. **New image URLs** are automatically added whenever a new activity is being uploaded to Strava. New **photos of already existing activites** are added once every night.
-
 
 ## Installation
 ### First, set up remote access to your Home Assistant Installation
@@ -58,7 +44,7 @@ Now is the time to fire up the Strava Home Assitant Integration for the first ti
 
 ![](ha_strava_install.gif)
 
-From within Home Assistant, head over to `Configuration` > `Integrations` and hit the "+"-symbol at the bottom. Search for "Strava Home Assistant" and click on the icon to add the Integration to Home Assistant. You'll automatically be prompted to enter your Strava API credentials. Here, you can also **chose to not import Photos from Strava**. If you chose to untick `Import Photos from Strava?`, the photo carousel will not be available . It'll take a few seconds to complete the set-up process after you've granted all the required permissions.
+From within Home Assistant, head over to `Configuration` > `Integrations` and hit the "+"-symbol at the bottom. Search for "Strava Home Assistant" and click on the icon to add the Integration to Home Assistant. You'll automatically be prompted to enter your Strava API credentials. It'll take a few seconds to complete the set-up process after you've granted all the required permissions.
 
 ## Configuration/Customization
 _Strava Home Assistant only supports configuration through the Home Assitant UI. Configuration via. `configuration.yaml` will be deprecated [official announcement to the HA community](https://www.home-assistant.io/blog/2020/04/14/the-future-of-yaml/) and is therefore not supported._
@@ -71,9 +57,6 @@ You can always **adjust the number of Strava activities you whish to track** fro
 ![](ha_strava_config.gif)
 
 Just locate the Strava Home Assistant Integration under `Configuration` > `Integrations`, click on `Options`, and use the slider to adjust the number of activities. After you've saved your settings, it might take a few minutes for Home Assistant to create the corresponding sensor entities and fetch the underlying data. The activities available in Home Assistant always correspond to the most recent ones under your Strava profile.
-
-### Increase/Decrease the frequency of the Photo Carousel
-Once you locate the Strava Home Assistant Integration configuration under `Configuration` > `Integrations` > `Options`, you can determine **how many seconds it takes** before the camera state changes to the next Image. Intervals < 15 seconds are not recommended since the Home Assistant UI will then struggle to re-render to UI at the same rate.
 
 ### Configure sensor entities for different types of Strava Activities
 Strava Home Assistant exposes **five sensor entities for every Strava activity**. You customize the Strava-KPI for each of those five sensors as follows:
@@ -124,6 +107,18 @@ views:
               - entity: sensor.strava_1_5
             type: glance
         type: vertical-stack
+      - type: picture-glance
+        aspect_ratio: 0%
+        camera_image: camera.strava_cam
+        entities: []
+        image: 'https://demo.home-assistant.io/stub_config/kitchen.png'
+      - entities:
+          - entity: sensor.strava_stats_summary_ytd_ride_distance
+          - entity: sensor.strava_stats_summary_ytd_ride_moving_time
+          - entity: sensor.strava_stats_summary_all_run_distance
+          - entity: sensor.strava_stats_summary_all_run_moving_time
+        title: Strava - Year to Date
+        type: entities
 ```
 
 ## Contributors

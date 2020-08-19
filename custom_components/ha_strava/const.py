@@ -6,8 +6,6 @@ DOMAIN = "ha_strava"
 AUTH_CALLBACK_PATH = "/auth/external/callback"
 OAUTH2_AUTHORIZE = "https://www.strava.com/oauth/authorize"
 OAUTH2_TOKEN = "https://www.strava.com/oauth/token"
-CONF_15_MIN_RATE_LIMIT = 100
-CONF_DAILY_RATE_LIMIT = 1000
 
 # Camera Config
 CONF_PHOTOS = "conf_photos"
@@ -15,7 +13,7 @@ CONF_PHOTOS_ENTITY = "strava_cam"
 CONFIG_IMG_SIZE = 512
 CONFIG_URL_DUMP_FILENAME = "strava_img_urls.pickle"
 CONF_IMG_UPDATE_INTERVAL_SECONDS = "img_update_interval_seconds"
-CONF_IMG_UPDATE_INTERVAL_SECONDS_DEFAULT = 5
+CONF_IMG_UPDATE_INTERVAL_SECONDS_DEFAULT = 15
 CONF_MAX_NB_IMAGES = 100
 
 # Webhook & API Specs
@@ -37,6 +35,7 @@ CONF_IMG_ROTATE_EVENT = "ha_strava_rotate_images"
 # Sensor Specs
 CONF_SENSOR_DATE = "date"
 CONF_SENSOR_DURATION = "duration"
+CONF_SENSOR_ACTIVITY_COUNT = "activity_count"
 CONF_SENSOR_PACE = "pace"
 CONF_SENSOR_SPEED = "speed"
 CONF_SENSOR_DISTANCE = "distance"
@@ -49,14 +48,18 @@ CONF_SENSOR_TITLE = "title"
 CONF_SENSOR_CITY = "city"
 CONF_SENSOR_MOVING_TIME = "moving_time"
 CONF_SENSOR_ACTIVITY_TYPE = "activity_type"
-CONF_ACTIVITY_TYPE_RUN = "Run"
-CONF_ACTIVITY_TYPE_RIDE = "Ride"
-CONF_ACTIVITY_TYPE_HIKE = "Hike"
-CONF_ACTIVITY_TYPE_OTHER = "Other"
+CONF_ACTIVITY_TYPE_RUN = "run"
+CONF_ACTIVITY_TYPE_RIDE = "ride"
+CONF_ACTIVITY_TYPE_SWIM = "swim"
+CONF_ACTIVITY_TYPE_HIKE = "hike"
+CONF_ACTIVITY_TYPE_OTHER = "other"
+CONF_SUMMARY_YTD = "summary_ytd"
+CONF_SUMMARY_ALL = "summary_all"
 
 CONF_SENSORS = {
     CONF_SENSOR_DATE: {"icon": "mdi:run"},
     CONF_SENSOR_DURATION: {"icon": "mdi:speedometer"},
+    CONF_SENSOR_MOVING_TIME: {"icon": "mdi:speedometer"},
     CONF_SENSOR_PACE: {"icon": "mdi:clock-fast"},
     CONF_SENSOR_SPEED: {"icon": "mdi:clock-fast"},
     CONF_SENSOR_DISTANCE: {"icon": "mdi:ruler"},

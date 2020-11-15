@@ -168,9 +168,10 @@ class UrlCam(Camera):
         self._urls = {
             k: v
             for (k, v) in sorted(
-                list(self._urls.items()), key=lambda k_v: k_v[1]["date"]
+                list(self._urls.items())[-self._max_images :],
+                key=lambda k_v: k_v[1]["date"],
             )
-        }[-self._max_images :]
+        }
 
         self._pickle_urls()
         return

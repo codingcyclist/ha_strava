@@ -337,8 +337,8 @@ class OAuth2FlowHandler(
                 config_entry_oauth2_flow.LocalOAuth2Implementation(
                     self.hass,
                     DOMAIN,
-                    user_input[CONF_CLIENT_ID],
-                    user_input[CONF_CLIENT_SECRET],
+                    str(user_input[CONF_CLIENT_ID]).strip(),
+                    str(user_input[CONF_CLIENT_SECRET]).strip(),
                     OAUTH2_AUTHORIZE,
                     OAUTH2_TOKEN,
                 ),

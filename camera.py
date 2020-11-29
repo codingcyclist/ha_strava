@@ -1,3 +1,4 @@
+# hello world
 import logging
 from homeassistant.components.camera import Camera
 import requests

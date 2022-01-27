@@ -1,0 +1,52 @@
+{
+    "config": {
+      "title": "Integração do Strava Home Assistant",
+      "create_entry": {
+        "default": "A integração do seu Strava Home Assistant foi instalada com sucesso"
+      },
+      "abort": {
+        "already_configured": "Uma integração do Strava Home Assistant já foi instalada. Você só pode ter uma instalação por vez",
+        "no_public_url": "Sua instância do Home Assistant parece não ter um URL público. A integração do Strava Home Assistant requer um URL público",
+        "webhook_fail": "O Strava Home Assistant falhou ao subscrever o Strava Webhook"
+      },
+      "step": {
+        "get_oauth_info": {
+          "title": "Insira suas credenciais da API Strava",
+          "description": "Você pode encontrar mais informações sobre como obter suas credenciais de API do Strava aqui: https://www.strava.com/settings/api",
+          "data": {
+            "client_id": "ID do Cliente (Client ID)",
+            "client_secret": "Segredo do cliente (Client Secret)",
+            "conf_photos": "Importar fotos do Strava?"
+          }
+        }
+      }
+    },
+    "options": {
+      "step": {
+        "init": {
+          "title": "Configuração do Strava Home Assistant",
+          "data": {
+            "nb_activities": "Número de atividades simultâneas do Strava",
+            "img_update_interval_seconds": "Rotação da imagem (segundos)",
+            "conf_photos": "Importar fotos do Strava?"
+          }
+        },
+        "sensor_options": {
+          "title": "Personalize as leituras do sensor para tipos de atividade específicos",
+          "data": {
+            "activity_type": "Tipo de atividade",
+            "sensor_1": "Sensor 1",
+            "sensor_2": "Sensor 2",
+            "sensor_3": "Sensor 3",
+            "sensor_4": "Sensor 4",
+            "sensor_5": "Sensor 5"
+          }
+        }
+      },
+      "abort": {
+        "no_config": "Não foi possível encontrar a configuração do Strava Home Assistant",
+        "update_success": "A configuração do Strava Home Assistant foi atualizada com sucesso!"
+      }
+    }
+  }
+  

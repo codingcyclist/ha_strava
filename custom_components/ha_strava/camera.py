@@ -17,7 +17,6 @@ from .const import (
     CONFIG_URL_DUMP_FILENAME,
 )
 from hashlib import md5
-from homeassistant.const import EVENT_TIME_CHANGED
 
 _LOGGER = logging.getLogger(__name__)
 

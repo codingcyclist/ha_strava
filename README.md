@@ -1,7 +1,7 @@
 # Strava Home Assistant Integration
 Custom Component to integrate Activity Data from Strava into Home Assistant.
 
-# This repository is no longer actively maintained
+# !!! This repository is no longer actively maintained !!!
 
 ## Features
 * Gives you access to **up to 10 of your most recent activities** in Strava. 

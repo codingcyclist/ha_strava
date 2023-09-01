@@ -25,7 +25,6 @@ from homeassistant.const import (
     EVENT_COMPONENT_LOADED,
     EVENT_CORE_CONFIG_UPDATE,
     EVENT_HOMEASSISTANT_START,
-    EVENT_TIME_CHANGED,
 )
 from homeassistant.helpers import (
     aiohttp_client,
